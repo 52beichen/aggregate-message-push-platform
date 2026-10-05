@@ -1,0 +1,1087 @@
+diff --git a/index.html b/index.html
+index e3f2c4f..b5172a1 100644
+--- a/index.html
++++ b/index.html
+@@ -4,7 +4,7 @@
+     <meta charset="UTF-8">
+     <link rel="icon" href="/favicon.png">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-    <title>Push Server 控制台</title>
++    <title>聚合消息推送平台</title>
+   </head>
+   <body>
+     <div id="app"></div>
+diff --git a/src/api/apps.ts b/src/api/apps.ts
+index 2973cc6..1f289fb 100644
+--- a/src/api/apps.ts
++++ b/src/api/apps.ts
+@@ -5,6 +5,7 @@ import type {
+   AppPluginResponse,
+   PortalAppApiKeyResponse,
+   PortalAppResponse,
++  PortalSuiteAppResponse,
+ } from './types'
+ 
+ export interface CreateAppPayload {
+@@ -18,6 +19,19 @@ export interface UpdateAppPayload {
+   encodingAesKey?: string
+ }
+ 
++export interface CreateSuiteAppPayload {
++  suiteId: string
++  suiteSecret: string
++  token: string
++  encodingAesKey: string
++}
++
++export interface UpdateSuiteAppPayload {
++  suiteSecret?: string
++  token?: string
++  encodingAesKey?: string
++}
++
+ export interface UpdateAppApiKeyPayload {
+   rateLimitPerMinute: number | null
+ }
+@@ -92,6 +106,50 @@ export const syncApp = async (appId: number) => {
+   return unwrapPortalResponse(response)
+ }
+ 
++export const fetchSuiteApps = async () => {
++  const response = await http.get<PortalResponse<PortalSuiteAppResponse[]>>(
++    '/v2/apps/third-party',
++  )
++  return unwrapPortalResponse(response)
++}
++
++export const createSuiteApp = async (payload: CreateSuiteAppPayload) => {
++  await ensureCsrfToken()
++  const response = await http.post<PortalResponse<PortalSuiteAppResponse>>(
++    '/v2/apps/third-party',
++    payload,
++  )
++  return unwrapPortalResponse(response)
++}
++
++export const updateSuiteApp = async (
++  suiteAppId: number,
++  payload: UpdateSuiteAppPayload,
++) => {
++  await ensureCsrfToken()
++  const response = await http.put<PortalResponse<PortalSuiteAppResponse>>(
++    `/v2/apps/third-party/${suiteAppId}`,
++    payload,
++  )
++  return unwrapPortalResponse(response)
++}
++
++export const deleteSuiteApp = async (suiteAppId: number) => {
++  await ensureCsrfToken()
++  const response = await http.delete<PortalResponse<null>>(
++    `/v2/apps/third-party/${suiteAppId}`,
++  )
++  return unwrapPortalResponse(response)
++}
++
++export const refreshSuiteAppToken = async (suiteAppId: number) => {
++  await ensureCsrfToken()
++  const response = await http.post<PortalResponse<PortalSuiteAppResponse>>(
++    `/v2/apps/third-party/${suiteAppId}/refresh-token`,
++  )
++  return unwrapPortalResponse(response)
++}
++
+ export const fetchAppApiKey = async (appId: number) => {
+   const response = await http.get<PortalResponse<PortalAppApiKeyResponse>>(
+     `/v2/apps/${appId}/api-key`,
+diff --git a/src/api/login.ts b/src/api/login.ts
+index 2d98a06..bd9ff05 100644
+--- a/src/api/login.ts
++++ b/src/api/login.ts
+@@ -1,4 +1,7 @@
+ import http from './http'
++import type { PortalResponse } from './portal'
++import { unwrapPortalResponse } from './portal'
++import type { PortalUserResponse } from './types'
+ 
+ export interface LoginPayload {
+   account: string
+@@ -16,6 +19,19 @@ export const login = (payload: LoginPayload) => {
+   return http.post<LoginResponse>('/login', payload)
+ }
+ 
++export interface RegisterPayload {
++  account: string
++  password: string
++}
++
++export const register = async (payload: RegisterPayload) => {
++  const response = await http.post<PortalResponse<PortalUserResponse>>(
++    '/v2/auth/register',
++    payload,
++  )
++  return unwrapPortalResponse(response)
++}
++
+ export const fetchCaptcha = () => {
+   return http.get<Blob>('/captcha', { responseType: 'blob' })
+ }
+diff --git a/src/api/types.ts b/src/api/types.ts
+index faf8fb5..0c8aea6 100644
+--- a/src/api/types.ts
++++ b/src/api/types.ts
+@@ -15,6 +15,16 @@ export interface PortalAppResponse {
+   updatedAt: number
+ }
+ 
++export interface PortalSuiteAppResponse {
++  id: number
++  suiteId: string
++  hasSuiteTicket: boolean
++  hasSuiteAccessToken: boolean
++  callbackUrl: string
++  createdAt: number
++  updatedAt: number
++}
++
+ export interface PortalAppApiKeyResponse {
+   appId: number
+   hasKey: boolean
+diff --git a/src/layouts/AdminLayout.vue b/src/layouts/AdminLayout.vue
+index 2630f26..402dd9a 100644
+--- a/src/layouts/AdminLayout.vue
++++ b/src/layouts/AdminLayout.vue
+@@ -100,7 +100,7 @@ onMounted(() => {
+       <div class="app-logo">
+         <img src="/logo.png" alt="Logo" class="logo-image" />
+         <span v-if="!appStore.sidebarCollapsed" class="logo-text">
+-          Push Server
++          聚合消息推送平台
+         </span>
+       </div>
+ 
+diff --git a/src/views/InitView.vue b/src/views/InitView.vue
+index 3510a91..19542bc 100644
+--- a/src/views/InitView.vue
++++ b/src/views/InitView.vue
+@@ -2,7 +2,6 @@
+ import {
+   ArrowRight,
+   Lock,
+-  OfficeBuilding,
+   Key,
+   SetUp,
+ } from '@element-plus/icons-vue'
+@@ -74,7 +73,7 @@ const handleInit = async () => {
+       <div class="hero-content">
+         <h1>
+           系统初始化
+-          <span>Welcome to Push Server</span>
++          <span>欢迎使用聚合消息推送平台</span>
+         </h1>
+         <p>
+           配置您的管理员账户与安全设置，开启高效推送服务之旅。
+diff --git a/src/views/LoginView.vue b/src/views/LoginView.vue
+index 341bc82..98fe61c 100644
+--- a/src/views/LoginView.vue
++++ b/src/views/LoginView.vue
+@@ -10,7 +10,7 @@ import { ElMessage } from 'element-plus'
+ import { onBeforeUnmount, onMounted, ref } from 'vue'
+ import { useRouter } from 'vue-router'
+ 
+-import { fetchCaptcha, getCaptchaConfig, login } from '@/api/login'
++import { fetchCaptcha, getCaptchaConfig, login, register } from '@/api/login'
+ import TurnstileWidget from '@/components/TurnstileWidget.vue'
+ 
+ const router = useRouter()
+@@ -20,6 +20,10 @@ const password = ref('')
+ const captcha = ref('')
+ const rememberPassword = ref(false)
+ const isSubmitting = ref(false)
++const registerAccount = ref('')
++const registerPassword = ref('')
++const confirmPassword = ref('')
++const isRegistering = ref(false)
+ const captchaImage = ref('')
+ const turnstileEnabled = ref(false)
+ const turnstileSiteKey = ref('')
+@@ -136,6 +140,37 @@ const handleLogin = async () => {
+   }
+ }
+ 
++const handleRegister = async () => {
++  const trimmedAccount = registerAccount.value.trim()
++  if (!trimmedAccount || !registerPassword.value) {
++    ElMessage.warning('请输入账号和密码')
++    return
++  }
++  if (registerPassword.value !== confirmPassword.value) {
++    ElMessage.warning('两次输入的密码不一致')
++    return
++  }
++
++  isRegistering.value = true
++  try {
++    await register({
++      account: trimmedAccount,
++      password: registerPassword.value,
++    })
++    ElMessage.success('注册成功，请使用新账号登录')
++    account.value = trimmedAccount
++    password.value = ''
++    registerPassword.value = ''
++    confirmPassword.value = ''
++    activeTab.value = 'account'
++    refreshCaptcha()
++  } catch {
++    // Error handled by interceptor
++  } finally {
++    isRegistering.value = false
++  }
++}
++
+ onMounted(() => {
+   loadCaptchaConfig()
+   const shouldRemember = localStorage.getItem('remember_password') === 'true'
+@@ -170,7 +205,7 @@ onBeforeUnmount(() => {
+         <span class="brand-icon">
+           <img src="/logo.png" alt="Logo" class="brand-logo-img" />
+         </span>
+-        <span class="brand-text">轻舟消息推送平台</span>
++        <span class="brand-text">聚合消息推送平台</span>
+       </div>
+ 
+       <div class="hero-content">
+@@ -179,7 +214,7 @@ onBeforeUnmount(() => {
+           <span>协同驱动未来</span>
+         </h1>
+         <p>
+-          轻舟消息推送平台为您提供高效、安全的数字化办公环境。统一管理，无缝协作，赋能每一位员工。
++          聚合消息推送平台为您提供统一、安全的企业消息推送管理能力。
+         </p>
+         <div class="hero-tags">
+           <span class="hero-tag">
+@@ -214,12 +249,12 @@ onBeforeUnmount(() => {
+     <section class="login-panel">
+       <div class="mobile-brand">
+         <img src="/logo.png" alt="Logo" class="mobile-logo-img" />
+-        <span>轻舟消息推送平台</span>
++        <span>聚合消息推送平台</span>
+       </div>
+ 
+       <div class="login-card">
+         <div class="card-header">
+-          <h2>轻舟消息推送平台</h2>
++          <h2>聚合消息推送平台</h2>
+           <p>请登录以管理消息推送系统</p>
+         </div>
+ 
+@@ -316,6 +351,74 @@ onBeforeUnmount(() => {
+               </el-button>
+             </div>
+           </el-tab-pane>
++          <el-tab-pane label="自助注册" name="register">
++            <div class="login-form">
++              <div class="form-field">
++                <label>账号</label>
++                <el-input
++                  v-model="registerAccount"
++                  placeholder="请输入登录账号"
++                  autocomplete="username"
++                  @keyup.enter="handleRegister"
++                >
++                  <template #prefix>
++                    <el-icon>
++                      <User />
++                    </el-icon>
++                  </template>
++                </el-input>
++              </div>
++
++              <div class="form-field">
++                <label>密码</label>
++                <el-input
++                  v-model="registerPassword"
++                  placeholder="请输入密码"
++                  type="password"
++                  show-password
++                  autocomplete="new-password"
++                  @keyup.enter="handleRegister"
++                >
++                  <template #prefix>
++                    <el-icon>
++                      <Lock />
++                    </el-icon>
++                  </template>
++                </el-input>
++              </div>
++
++              <div class="form-field">
++                <label>确认密码</label>
++                <el-input
++                  v-model="confirmPassword"
++                  placeholder="请再次输入密码"
++                  type="password"
++                  show-password
++                  autocomplete="new-password"
++                  @keyup.enter="handleRegister"
++                >
++                  <template #prefix>
++                    <el-icon>
++                      <Lock />
++                    </el-icon>
++                  </template>
++                </el-input>
++              </div>
++
++              <el-button
++                type="primary"
++                class="login-button"
++                :loading="isRegistering"
++                :disabled="isRegistering"
++                @click="handleRegister"
++              >
++                注册账号
++                <el-icon>
++                  <ArrowRight />
++                </el-icon>
++              </el-button>
++            </div>
++          </el-tab-pane>
+         </el-tabs>
+       </div>
+     </section>
+diff --git a/src/views/apps/AppsView.vue b/src/views/apps/AppsView.vue
+index 2cb7351..12f8e2e 100644
+--- a/src/views/apps/AppsView.vue
++++ b/src/views/apps/AppsView.vue
+@@ -1,18 +1,41 @@
+ <script setup lang="ts">
+-import { onMounted, reactive, ref } from 'vue'
++import { computed, onMounted, reactive, ref } from 'vue'
+ import { ElMessage, ElMessageBox } from 'element-plus'
+-import { CopyDocument, Connection, Plus, RefreshRight, Setting } from '@element-plus/icons-vue'
+-import { createApp, deleteApp, fetchApps, syncApp, updateApp } from '@/api/apps'
+-import type { PortalAppResponse } from '@/api/types'
++import {
++  Connection,
++  CopyDocument,
++  Plus,
++  RefreshRight,
++  Setting,
++} from '@element-plus/icons-vue'
++import {
++  createApp,
++  createSuiteApp,
++  deleteApp,
++  deleteSuiteApp,
++  fetchApps,
++  fetchSuiteApps,
++  refreshSuiteAppToken,
++  syncApp,
++  updateApp,
++  updateSuiteApp,
++} from '@/api/apps'
++import type { UpdateSuiteAppPayload } from '@/api/apps'
++import type { PortalAppResponse, PortalSuiteAppResponse } from '@/api/types'
+ import AppPluginsDialog from './AppPluginsDialog.vue'
+ 
++const activeAppType = ref<'self-built' | 'third-party'>('self-built')
+ const apps = ref<PortalAppResponse[]>([])
++const suiteApps = ref<PortalSuiteAppResponse[]>([])
+ const isLoading = ref(false)
+ const dialogVisible = ref(false)
+ const editDialogVisible = ref(false)
++const suiteDialogVisible = ref(false)
++const suiteEditDialogVisible = ref(false)
+ const pluginsDialogVisible = ref(false)
+ const isSubmitting = ref(false)
+ const syncingAppId = ref<number | null>(null)
++const refreshingSuiteAppId = ref<number | null>(null)
+ const selectedApp = ref<PortalAppResponse | null>(null)
+ 
+ const form = reactive({
+@@ -28,6 +51,26 @@ const editForm = reactive({
+   encodingAesKey: '',
+ })
+ 
++const suiteForm = reactive({
++  suiteId: '',
++  suiteSecret: '',
++  token: '',
++  encodingAesKey: '',
++})
++
++const suiteEditForm = reactive({
++  id: 0,
++  suiteId: '',
++  suiteSecret: '',
++  token: '',
++  encodingAesKey: '',
++  callbackUrl: '',
++})
++
++const addButtonText = computed(() =>
++  activeAppType.value === 'self-built' ? '新增自建应用' : '新增第三方应用',
++)
++
+ const formatDate = (value?: number) => {
+   if (!value) {
+     return '--'
+@@ -38,7 +81,12 @@ const formatDate = (value?: number) => {
+ const loadApps = async () => {
+   isLoading.value = true
+   try {
+-    apps.value = await fetchApps()
++    const [selfBuilt, thirdParty] = await Promise.all([
++      fetchApps(),
++      fetchSuiteApps(),
++    ])
++    apps.value = selfBuilt
++    suiteApps.value = thirdParty
+   } catch {
+     // Error handled by interceptor
+   } finally {
+@@ -46,19 +94,33 @@ const loadApps = async () => {
+   }
+ }
+ 
+-const openDialog = () => {
+-  dialogVisible.value = true
++const openCreateDialog = () => {
++  if (activeAppType.value === 'self-built') {
++    dialogVisible.value = true
++  } else {
++    suiteDialogVisible.value = true
++  }
+ }
+ 
+ const openEditDialog = (app: PortalAppResponse) => {
+   editForm.id = app.id
+   editForm.agentId = app.agentId
+-  editForm.secret = '' // Reset secret, only update if provided
+-  editForm.token = '' // These are not in the response usually, or we don't know
++  editForm.secret = ''
++  editForm.token = ''
+   editForm.encodingAesKey = ''
+   editDialogVisible.value = true
+ }
+ 
++const openSuiteEditDialog = (app: PortalSuiteAppResponse) => {
++  suiteEditForm.id = app.id
++  suiteEditForm.suiteId = app.suiteId
++  suiteEditForm.suiteSecret = ''
++  suiteEditForm.token = ''
++  suiteEditForm.encodingAesKey = ''
++  suiteEditForm.callbackUrl = app.callbackUrl
++  suiteEditDialogVisible.value = true
++}
++
+ const openPluginsDialog = (app: PortalAppResponse) => {
+   selectedApp.value = app
+   pluginsDialogVisible.value = true
+@@ -89,11 +151,49 @@ const handleCreate = async () => {
+       agentId,
+       secret: form.secret,
+     })
+-    ElMessage.success('应用已创建')
++    ElMessage.success('自建应用已创建')
+     dialogVisible.value = false
+     form.agentId = ''
+     form.secret = ''
+-    loadApps()
++    await loadApps()
++  } catch {
++    // Error handled by interceptor
++  } finally {
++    isSubmitting.value = false
++  }
++}
++
++const handleSuiteCreate = async () => {
++  const suiteId = suiteForm.suiteId.trim()
++  if (
++    !suiteId ||
++    !suiteForm.suiteSecret ||
++    !suiteForm.token.trim() ||
++    !suiteForm.encodingAesKey.trim()
++  ) {
++    ElMessage.warning('请填写完整的第三方应用和回调配置')
++    return
++  }
++  if (suiteForm.encodingAesKey.trim().length !== 43) {
++    ElMessage.warning('EncodingAESKey 必须为 43 个字符')
++    return
++  }
++
++  isSubmitting.value = true
++  try {
++    await createSuiteApp({
++      suiteId,
++      suiteSecret: suiteForm.suiteSecret,
++      token: suiteForm.token.trim(),
++      encodingAesKey: suiteForm.encodingAesKey.trim(),
++    })
++    ElMessage.success('第三方应用已创建，请复制回调 URL 到企业微信服务商后台')
++    suiteDialogVisible.value = false
++    suiteForm.suiteId = ''
++    suiteForm.suiteSecret = ''
++    suiteForm.token = ''
++    suiteForm.encodingAesKey = ''
++    await loadApps()
+   } catch {
+     // Error handled by interceptor
+   } finally {
+@@ -104,7 +204,11 @@ const handleCreate = async () => {
+ const handleUpdate = async () => {
+   isSubmitting.value = true
+   try {
+-    const payload: any = {
++    const payload: {
++      secret?: string
++      token?: string
++      encodingAesKey?: string
++    } = {
+       token: editForm.token,
+       encodingAesKey: editForm.encodingAesKey,
+     }
+@@ -114,7 +218,40 @@ const handleUpdate = async () => {
+     await updateApp(editForm.id, payload)
+     ElMessage.success('配置已更新')
+     editDialogVisible.value = false
+-    loadApps()
++    await loadApps()
++  } catch {
++    // Error handled by interceptor
++  } finally {
++    isSubmitting.value = false
++  }
++}
++
++const handleSuiteUpdate = async () => {
++  const payload: UpdateSuiteAppPayload = {}
++  if (suiteEditForm.suiteSecret) {
++    payload.suiteSecret = suiteEditForm.suiteSecret
++  }
++  if (suiteEditForm.token.trim()) {
++    payload.token = suiteEditForm.token.trim()
++  }
++  if (suiteEditForm.encodingAesKey.trim()) {
++    if (suiteEditForm.encodingAesKey.trim().length !== 43) {
++      ElMessage.warning('EncodingAESKey 必须为 43 个字符')
++      return
++    }
++    payload.encodingAesKey = suiteEditForm.encodingAesKey.trim()
++  }
++  if (!Object.keys(payload).length) {
++    suiteEditDialogVisible.value = false
++    return
++  }
++
++  isSubmitting.value = true
++  try {
++    await updateSuiteApp(suiteEditForm.id, payload)
++    ElMessage.success('第三方应用配置已更新')
++    suiteEditDialogVisible.value = false
++    await loadApps()
+   } catch {
+     // Error handled by interceptor
+   } finally {
+@@ -140,7 +277,31 @@ const handleDelete = async (app: PortalAppResponse) => {
+   try {
+     await deleteApp(app.id)
+     ElMessage.success('应用已删除')
+-    loadApps()
++    await loadApps()
++  } catch {
++    // Error handled by interceptor
++  }
++}
++
++const handleSuiteDelete = async (app: PortalSuiteAppResponse) => {
++  try {
++    await ElMessageBox.confirm(
++      `确认删除第三方应用 ${app.suiteId}？`,
++      '提示',
++      {
++        type: 'warning',
++        confirmButtonText: '删除',
++        cancelButtonText: '取消',
++      },
++    )
++  } catch {
++    return
++  }
++
++  try {
++    await deleteSuiteApp(app.id)
++    ElMessage.success('第三方应用已删除')
++    await loadApps()
+   } catch {
+     // Error handled by interceptor
+   }
+@@ -151,7 +312,7 @@ const handleSync = async (app: PortalAppResponse) => {
+   try {
+     await syncApp(app.id)
+     ElMessage.success('应用已同步')
+-    loadApps()
++    await loadApps()
+   } catch {
+     // Error handled by interceptor
+   } finally {
+@@ -159,6 +320,19 @@ const handleSync = async (app: PortalAppResponse) => {
+   }
+ }
+ 
++const handleSuiteRefresh = async (app: PortalSuiteAppResponse) => {
++  refreshingSuiteAppId.value = app.id
++  try {
++    await refreshSuiteAppToken(app.id)
++    ElMessage.success('套件凭证已刷新')
++    await loadApps()
++  } catch {
++    // Error handled by interceptor
++  } finally {
++    refreshingSuiteAppId.value = null
++  }
++}
++
+ onMounted(() => {
+   loadApps()
+ })
+@@ -169,88 +343,149 @@ onMounted(() => {
+     <div class="page-heading">
+       <div>
+         <h1>应用管理</h1>
+-        <p>接入企业微信应用并同步基础信息</p>
++        <p>统一管理企业微信自建应用与第三方应用</p>
+       </div>
+       <div class="page-actions">
+-        <el-button :icon="RefreshRight" :loading="isLoading" @click="loadApps">刷新</el-button>
+-        <el-button type="primary" :icon="Plus" @click="openDialog">
+-          新增应用
++        <el-button :icon="RefreshRight" :loading="isLoading" @click="loadApps">
++          刷新
++        </el-button>
++        <el-button type="primary" :icon="Plus" @click="openCreateDialog">
++          {{ addButtonText }}
+         </el-button>
+       </div>
+     </div>
+ 
+     <el-card class="panel-card">
+-      <el-table v-loading="isLoading" :data="apps" style="width: 100%">
+-        <el-table-column label="应用" min-width="200">
+-          <template #default="scope">
+-            <div class="app-cell">
+-              <el-avatar size="small" :src="scope.row.avatarUrl">
+-                {{ scope.row.name?.charAt(0) || 'A' }}
+-              </el-avatar>
+-              <div>
+-                <div class="app-name">{{ scope.row.name || '未命名应用' }}</div>
+-                <div class="app-meta">AgentId：{{ scope.row.agentId }}</div>
+-              </div>
+-            </div>
+-          </template>
+-        </el-table-column>
+-        <el-table-column label="描述" min-width="200">
+-          <template #default="scope">
+-            <span>{{ scope.row.description || '暂无描述' }}</span>
++      <el-tabs v-model="activeAppType" class="app-type-tabs">
++        <el-tab-pane name="self-built">
++          <template #label>
++            <span>自建应用 <el-tag size="small" type="info">{{ apps.length }}</el-tag></span>
+           </template>
+-        </el-table-column>
+-        <el-table-column label="更新时间" min-width="160">
+-          <template #default="scope">
+-            {{ formatDate(scope.row.updatedAt) }}
+-          </template>
+-        </el-table-column>
+-        <el-table-column label="操作" min-width="160">
+-          <template #default="scope">
+-            <el-button
+-              size="small"
+-              text
+-              :icon="Setting"
+-              @click="openEditDialog(scope.row)"
+-            >
+-              配置
+-            </el-button>
+-            <el-button
+-              size="small"
+-              text
+-              :icon="Connection"
+-              @click="openPluginsDialog(scope.row)"
+-            >
+-              插件
+-            </el-button>
+-            <el-button
+-              size="small"
+-              text
+-              :loading="syncingAppId === scope.row.id"
+-              @click="handleSync(scope.row)"
+-            >
+-              同步
+-            </el-button>
+-            <el-button
+-              size="small"
+-              text
+-              type="danger"
+-              @click="handleDelete(scope.row)"
+-            >
+-              删除
+-            </el-button>
++          <el-table v-loading="isLoading" :data="apps" style="width: 100%">
++            <el-table-column label="应用" min-width="200">
++              <template #default="scope">
++                <div class="app-cell">
++                  <el-avatar size="small" :src="scope.row.avatarUrl">
++                    {{ scope.row.name?.charAt(0) || 'A' }}
++                  </el-avatar>
++                  <div>
++                    <div class="app-name">{{ scope.row.name || '未命名应用' }}</div>
++                    <div class="app-meta">AgentId：{{ scope.row.agentId }}</div>
++                  </div>
++                </div>
++              </template>
++            </el-table-column>
++            <el-table-column label="描述" min-width="180">
++              <template #default="scope">
++                <span>{{ scope.row.description || '暂无描述' }}</span>
++              </template>
++            </el-table-column>
++            <el-table-column label="更新时间" min-width="170">
++              <template #default="scope">
++                {{ formatDate(scope.row.updatedAt) }}
++              </template>
++            </el-table-column>
++            <el-table-column label="操作" min-width="250" fixed="right">
++              <template #default="scope">
++                <el-button size="small" text :icon="Setting" @click="openEditDialog(scope.row)">
++                  配置
++                </el-button>
++                <el-button size="small" text :icon="Connection" @click="openPluginsDialog(scope.row)">
++                  插件
++                </el-button>
++                <el-button
++                  size="small"
++                  text
++                  :loading="syncingAppId === scope.row.id"
++                  @click="handleSync(scope.row)"
++                >
++                  同步
++                </el-button>
++                <el-button size="small" text type="danger" @click="handleDelete(scope.row)">
++                  删除
++                </el-button>
++              </template>
++            </el-table-column>
++          </el-table>
++          <el-empty v-if="!apps.length && !isLoading" description="暂无自建应用" />
++        </el-tab-pane>
++
++        <el-tab-pane name="third-party">
++          <template #label>
++            <span>第三方应用 <el-tag size="small" type="info">{{ suiteApps.length }}</el-tag></span>
+           </template>
+-        </el-table-column>
+-      </el-table>
+-      <el-empty v-if="!apps.length && !isLoading" description="暂无应用数据" />
++          <el-alert
++            class="suite-notice"
++            type="info"
++            :closable="false"
++            title="第三方应用创建后，请将生成的回调 URL、Token 和 EncodingAESKey 配置到企业微信服务商后台。"
++          />
++          <el-table v-loading="isLoading" :data="suiteApps" style="width: 100%">
++            <el-table-column label="SuiteID" min-width="190" prop="suiteId" />
++            <el-table-column label="回调状态" min-width="150">
++              <template #default="scope">
++                <el-tag :type="scope.row.hasSuiteTicket ? 'success' : 'warning'">
++                  {{ scope.row.hasSuiteTicket ? '已收到 SuiteTicket' : '等待回调' }}
++                </el-tag>
++              </template>
++            </el-table-column>
++            <el-table-column label="套件凭证" min-width="130">
++              <template #default="scope">
++                <el-tag :type="scope.row.hasSuiteAccessToken ? 'success' : 'info'">
++                  {{ scope.row.hasSuiteAccessToken ? '有效' : '未获取' }}
++                </el-tag>
++              </template>
++            </el-table-column>
++            <el-table-column label="回调 URL" min-width="300">
++              <template #default="scope">
++                <div class="callback-cell">
++                  <span>{{ scope.row.callbackUrl }}</span>
++                  <el-button
++                    text
++                    :icon="CopyDocument"
++                    title="复制回调 URL"
++                    @click="copyToClipboard(scope.row.callbackUrl)"
++                  />
++                </div>
++              </template>
++            </el-table-column>
++            <el-table-column label="更新时间" min-width="170">
++              <template #default="scope">
++                {{ formatDate(scope.row.updatedAt) }}
++              </template>
++            </el-table-column>
++            <el-table-column label="操作" min-width="230" fixed="right">
++              <template #default="scope">
++                <el-button size="small" text :icon="Setting" @click="openSuiteEditDialog(scope.row)">
++                  配置
++                </el-button>
++                <el-button
++                  size="small"
++                  text
++                  :disabled="!scope.row.hasSuiteTicket"
++                  :loading="refreshingSuiteAppId === scope.row.id"
++                  @click="handleSuiteRefresh(scope.row)"
++                >
++                  刷新凭证
++                </el-button>
++                <el-button size="small" text type="danger" @click="handleSuiteDelete(scope.row)">
++                  删除
++                </el-button>
++              </template>
++            </el-table-column>
++          </el-table>
++          <el-empty v-if="!suiteApps.length && !isLoading" description="暂无第三方应用" />
++        </el-tab-pane>
++      </el-tabs>
+     </el-card>
+ 
+-    <el-dialog v-model="dialogVisible" title="新增应用" width="420px">
++    <el-dialog v-model="dialogVisible" title="新增自建应用" width="420px">
+       <el-form :model="form" label-width="90px">
+         <el-form-item label="AgentId">
+           <el-input v-model="form.agentId" placeholder="请输入 AgentId" />
+         </el-form-item>
+         <el-form-item label="Secret">
+-          <el-input v-model="form.secret" placeholder="请输入 Secret" />
++          <el-input v-model="form.secret" type="password" show-password placeholder="请输入 Secret" />
+         </el-form-item>
+       </el-form>
+       <template #footer>
+@@ -261,13 +496,52 @@ onMounted(() => {
+       </template>
+     </el-dialog>
+ 
+-    <el-dialog v-model="editDialogVisible" title="应用配置" width="560px">
++    <el-dialog v-model="suiteDialogVisible" title="新增第三方应用" width="580px">
++      <el-form :model="suiteForm" label-width="130px">
++        <el-form-item label="SuiteID">
++          <el-input v-model="suiteForm.suiteId" placeholder="请输入 SuiteID" />
++        </el-form-item>
++        <el-form-item label="SuiteSecret">
++          <el-input
++            v-model="suiteForm.suiteSecret"
++            type="password"
++            show-password
++            placeholder="请输入 SuiteSecret"
++          />
++        </el-form-item>
++        <el-divider content-position="left">回调配置</el-divider>
++        <el-form-item label="Token">
++          <el-input v-model="suiteForm.token" placeholder="企业微信服务商后台设置的 Token" />
++        </el-form-item>
++        <el-form-item label="EncodingAESKey">
++          <el-input
++            v-model="suiteForm.encodingAesKey"
++            maxlength="43"
++            show-word-limit
++            placeholder="请输入 43 位 EncodingAESKey"
++          />
++        </el-form-item>
++        <el-alert
++          type="info"
++          :closable="false"
++          title="创建后系统会生成回调 URL，再将 URL、Token 和 EncodingAESKey 填入企业微信服务商后台。"
++        />
++      </el-form>
++      <template #footer>
++        <el-button @click="suiteDialogVisible = false">取消</el-button>
++        <el-button type="primary" :loading="isSubmitting" @click="handleSuiteCreate">
++          创建
++        </el-button>
++      </template>
++    </el-dialog>
++
++    <el-dialog v-model="editDialogVisible" title="自建应用配置" width="560px">
+       <el-form :model="editForm" label-width="120px">
+         <el-form-item label="AgentId">
+           <el-input v-model="editForm.agentId" disabled />
+         </el-form-item>
+         <el-form-item label="Secret">
+-          <el-input v-model="editForm.secret" placeholder="不更新请留空" show-password />
++          <el-input v-model="editForm.secret" placeholder="不更新请留空" type="password" show-password />
+         </el-form-item>
+         <el-divider content-position="left">接收消息配置</el-divider>
+         <el-form-item label="Token">
+@@ -278,7 +552,7 @@ onMounted(() => {
+         </el-form-item>
+         <el-form-item label="回调 URL">
+           <div class="callback-url-container">
+-            <el-input :value="getCallbackUrl(editForm.id)" readonly>
++            <el-input :model-value="getCallbackUrl(editForm.id)" readonly>
+               <template #append>
+                 <el-button :icon="CopyDocument" @click="copyToClipboard(getCallbackUrl(editForm.id))" />
+               </template>
+@@ -290,17 +564,9 @@ onMounted(() => {
+           <el-collapse-item title="配置指引" name="1">
+             <div class="guide-content">
+               <ol>
+-                <li>登录 <a href="https://work.weixin.qq.com/" target="_blank">企业微信管理后台</a>。</li>
+-                <li>进入 <strong>应用管理</strong> -> 选择对应的应用。</li>
+-                <li>找到 <strong>接收消息</strong> -> 点击 <strong>设置 API 接收</strong>。</li>
+-                <li>在配置页面：
+-                  <ul>
+-                    <li><strong>URL</strong>: 复制上方本系统提供的 <strong>回调 URL</strong>。</li>
+-                    <li><strong>Token</strong>: 点击“随机获取”，并同步填写到本页面的 <strong>Token</strong> 输入框中。</li>
+-                    <li><strong>EncodingAESKey</strong>: 点击“随机获取”，并同步填写到本页面的 <strong>EncodingAESKey</strong> 输入框中。</li>
+-                  </ul>
+-                </li>
+-                <li><strong>重要顺序</strong>: 先在本页面点击 <strong>保存配置</strong>，然后再在企业微信后台点击 <strong>保存</strong> 进行验证。</li>
++                <li>登录企业微信管理后台，进入应用管理并选择对应的自建应用。</li>
++                <li>在“接收消息”中设置 API 接收。</li>
++                <li>先在本页面保存 Token 与 EncodingAESKey，再到企业微信后台验证回调 URL。</li>
+               </ol>
+             </div>
+           </el-collapse-item>
+@@ -314,6 +580,65 @@ onMounted(() => {
+       </template>
+     </el-dialog>
+ 
++    <el-dialog v-model="suiteEditDialogVisible" title="第三方应用配置" width="620px">
++      <el-form :model="suiteEditForm" label-width="130px">
++        <el-form-item label="SuiteID">
++          <el-input v-model="suiteEditForm.suiteId" disabled />
++        </el-form-item>
++        <el-form-item label="SuiteSecret">
++          <el-input
++            v-model="suiteEditForm.suiteSecret"
++            type="password"
++            show-password
++            placeholder="不更新请留空"
++          />
++        </el-form-item>
++        <el-divider content-position="left">回调配置</el-divider>
++        <el-form-item label="Token">
++          <el-input v-model="suiteEditForm.token" placeholder="不更新请留空" />
++        </el-form-item>
++        <el-form-item label="EncodingAESKey">
++          <el-input
++            v-model="suiteEditForm.encodingAesKey"
++            maxlength="43"
++            show-word-limit
++            placeholder="不更新请留空"
++          />
++        </el-form-item>
++        <el-form-item label="回调 URL">
++          <div class="callback-url-container">
++            <el-input :model-value="suiteEditForm.callbackUrl" readonly>
++              <template #append>
++                <el-button
++                  :icon="CopyDocument"
++                  title="复制回调 URL"
++                  @click="copyToClipboard(suiteEditForm.callbackUrl)"
++                />
++              </template>
++            </el-input>
++          </div>
++        </el-form-item>
++        <el-collapse class="guide-collapse">
++          <el-collapse-item title="企业微信第三方应用回调配置指引" name="suite-guide">
++            <div class="guide-content">
++              <ol>
++                <li>复制上方回调 URL。</li>
++                <li>在企业微信服务商后台打开该第三方应用的回调配置。</li>
++                <li>填写回调 URL，并使用与本系统一致的 Token 和 EncodingAESKey。</li>
++                <li>企业微信验证通过并推送 SuiteTicket 后，列表状态会变为“已收到 SuiteTicket”。</li>
++              </ol>
++            </div>
++          </el-collapse-item>
++        </el-collapse>
++      </el-form>
++      <template #footer>
++        <el-button @click="suiteEditDialogVisible = false">取消</el-button>
++        <el-button type="primary" :loading="isSubmitting" @click="handleSuiteUpdate">
++          保存配置
++        </el-button>
++      </template>
++    </el-dialog>
++
+     <AppPluginsDialog
+       v-if="selectedApp"
+       v-model:visible="pluginsDialogVisible"
+@@ -324,6 +649,16 @@ onMounted(() => {
+ </template>
+ 
+ <style scoped>
++.app-type-tabs :deep(.el-tabs__header) {
++  margin-bottom: 18px;
++}
++
++.app-type-tabs :deep(.el-tabs__item span) {
++  display: inline-flex;
++  align-items: center;
++  gap: 8px;
++}
++
+ .app-cell {
+   display: flex;
+   align-items: center;
+@@ -340,6 +675,23 @@ onMounted(() => {
+   color: var(--el-text-color-secondary);
+ }
+ 
++.suite-notice {
++  margin-bottom: 16px;
++}
++
++.callback-cell {
++  display: flex;
++  align-items: center;
++  gap: 4px;
++  min-width: 0;
++}
++
++.callback-cell span {
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++
+ .callback-url-container {
+   width: 100%;
+ }
+@@ -363,7 +715,7 @@ onMounted(() => {
+ 
+ .guide-content {
+   font-size: 13px;
+-  line-height: 1.6;
++  line-height: 1.7;
+   color: var(--el-text-color-regular);
+ }
+ 
+@@ -371,10 +723,4 @@ onMounted(() => {
+   padding-left: 18px;
+   margin: 0;
+ }
+-
+-.guide-content ul {
+-  padding-left: 18px;
+-  margin: 4px 0;
+-  list-style-type: circle;
+-}
+ </style>
+warning: in the working copy of 'index.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/api/apps.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/api/login.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/api/types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/layouts/AdminLayout.vue', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/views/InitView.vue', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/views/LoginView.vue', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/views/apps/AppsView.vue', LF will be replaced by CRLF the next time Git touches it

@@ -71,6 +71,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: qingzhou-dev/push-server-web
+          ref: c7b063fc10666be9c29a1d4300ca10fe53c671c4
           path: push-server-web
 
       - name: Apply CSRF header compatibility fix
@@ -78,6 +79,12 @@ jobs:
         run: |
           cd push-server-web
           git apply ../patches/push-server-web-csrf.patch
+
+      - name: Apply platform UI integration
+        shell: bash
+        run: |
+          cd push-server-web
+          git apply ../patches/push-server-web-platform.patch
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
