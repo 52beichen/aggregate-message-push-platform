@@ -1,0 +1,12 @@
+diff --git a/src/api/portal.ts b/src/api/portal.ts
+--- a/src/api/portal.ts
++++ b/src/api/portal.ts
+@@ -9,5 +9,7 @@ export const ensureCsrfToken = async () => {
+   if (!response.success) {
+     throw new Error(response.message || 'Failed to fetch CSRF token')
+   }
+-  return response.data
++  const token = response.data
++  http.defaults.headers.common['X-XSRF-TOKEN'] = token
++  return token
+ }

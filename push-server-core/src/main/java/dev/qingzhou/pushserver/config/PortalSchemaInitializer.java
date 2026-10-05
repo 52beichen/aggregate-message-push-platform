@@ -1,0 +1,213 @@
+package dev.qingzhou.pushserver.config;
+
+import jakarta.annotation.PostConstruct;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import javax.sql.DataSource;
+import org.springframework.stereotype.Component;
+
+@Component
+public class PortalSchemaInitializer {
+
+    private final DataSource dataSource;
+
+    public PortalSchemaInitializer(DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+
+    @PostConstruct
+    public void initialize() {
+        List<String> statements = new ArrayList<>();
+        statements.add("""
+                CREATE TABLE IF NOT EXISTS v2_system_config (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    config_key TEXT NOT NULL UNIQUE,
+                    config_value TEXT,
+                    updated_at INTEGER NOT NULL
+                )
+                """);
+        statements.add("""
+                CREATE TABLE IF NOT EXISTS v2_user (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    account TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )
+                """);
+        statements.add("""
+                CREATE TABLE IF NOT EXISTS v2_corp_config (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL UNIQUE,
+                    corp_id TEXT NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )
+                """);
+        statements.add("""
+                CREATE TABLE IF NOT EXISTS v2_wecom_app (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    agent_id TEXT NOT NULL,
+                    secret TEXT NOT NULL,
+                    token TEXT,
+                    encoding_aes_key TEXT,
+                    name TEXT,
+                    avatar_url TEXT,
+                    description TEXT,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(user_id, agent_id)
+                )
+                """);
+        statements.add("""
+                CREATE TABLE IF NOT EXISTS v2_wecom_suite_app (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    suite_id TEXT NOT NULL,
+                    suite_secret TEXT NOT NULL,
+                    token TEXT NOT NULL,
+                    encoding_aes_key TEXT NOT NULL,
+                    suite_ticket TEXT,
+                    suite_access_token TEXT,
+                    suite_access_token_expires_at INTEGER,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(user_id, suite_id)
+                )
+                """);
+        statements.add("""
+                CREATE TABLE IF NOT EXISTS v2_app_api_key (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    app_id INTEGER NOT NULL UNIQUE,
+                    api_key_hash TEXT NOT NULL,
+                    api_key_plain TEXT NOT NULL,
+                    rate_limit_per_minute INTEGER NOT NULL DEFAULT 0,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )
+                """);
+        statements.add("""
+                CREATE TABLE IF NOT EXISTS v2_proxy_config (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL UNIQUE,
+                    host TEXT NOT NULL,
+                    port INTEGER NOT NULL,
+                    username TEXT,
+                    password TEXT,
+                    type TEXT NOT NULL DEFAULT 'HTTP',
+                    exit_ip TEXT,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )
+                """);
+        statements.add("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_v2_app_api_key_hash
+                ON v2_app_api_key(api_key_hash)
+                """);
+        statements.add("""
+                CREATE TABLE IF NOT EXISTS v2_message_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    app_id INTEGER NOT NULL,
+                    agent_id TEXT NOT NULL,
+                    msg_type TEXT NOT NULL,
+                    to_user TEXT,
+                    to_party TEXT,
+                    to_all INTEGER NOT NULL DEFAULT 0,
+                    title TEXT,
+                    description TEXT,
+                    url TEXT,
+                    content TEXT,
+                    request_json TEXT,
+                    response_json TEXT,
+                    success INTEGER NOT NULL,
+                    error_message TEXT,
+                    created_at INTEGER NOT NULL
+                )
+                """);
+        statements.add("""
+                CREATE TABLE IF NOT EXISTS v2_plugin (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    plugin_key TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    token TEXT NOT NULL,
+                    status INTEGER NOT NULL DEFAULT 1,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )
+                """);
+        statements.add("""
+                CREATE TABLE IF NOT EXISTS v2_app_plugin_config (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    app_id INTEGER NOT NULL,
+                    plugin_key TEXT NOT NULL,
+                    config_json TEXT,
+                    status INTEGER NOT NULL DEFAULT 1,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(app_id, plugin_key)
+                )
+                """);
+        statements.add("""
+                CREATE TABLE IF NOT EXISTS v2_plugin_action_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    plugin_key TEXT NOT NULL,
+                    event_id TEXT,
+                    status INTEGER,
+                    message TEXT,
+                    app_id TEXT,
+                    app_name TEXT,
+                    user_id TEXT,
+                    type TEXT,
+                    content TEXT,
+                    plugin_config TEXT,
+                    created_at INTEGER NOT NULL,
+                    UNIQUE(plugin_key, event_id)
+                )
+                """);
+        statements.add("""
+                CREATE TABLE IF NOT EXISTS v2_plugin_heartbeat_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    plugin_key TEXT NOT NULL,
+                    current_inflight INTEGER,
+                    uptime_seconds INTEGER,
+                    created_at INTEGER NOT NULL
+                )
+                """);
+
+        List<String> alterStatements = new ArrayList<>();
+        alterStatements.add("ALTER TABLE v2_app_api_key ADD COLUMN api_key_plain TEXT NOT NULL DEFAULT ''");
+        alterStatements.add("ALTER TABLE v2_app_api_key ADD COLUMN rate_limit_per_minute INTEGER NOT NULL DEFAULT 0");
+        alterStatements.add("ALTER TABLE v2_wecom_app ADD COLUMN token TEXT");
+        alterStatements.add("ALTER TABLE v2_wecom_app ADD COLUMN encoding_aes_key TEXT");
+        alterStatements.add("ALTER TABLE v2_plugin_action_log ADD COLUMN app_id TEXT");
+        alterStatements.add("ALTER TABLE v2_plugin_action_log ADD COLUMN user_id TEXT");
+        alterStatements.add("ALTER TABLE v2_plugin_action_log ADD COLUMN type TEXT");
+        alterStatements.add("ALTER TABLE v2_plugin_action_log ADD COLUMN content TEXT");
+        alterStatements.add("ALTER TABLE v2_plugin_action_log ADD COLUMN plugin_config TEXT");
+        alterStatements.add("ALTER TABLE v2_plugin_action_log ADD COLUMN app_name TEXT");
+        alterStatements.add("CREATE UNIQUE INDEX IF NOT EXISTS idx_v2_plugin_action_log_key_event ON v2_plugin_action_log(plugin_key, event_id)");
+
+        try (Connection connection = dataSource.getConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                for (String sql : statements) {
+                    statement.execute(sql);
+                }
+                for (String sql : alterStatements) {
+                    try {
+                        statement.execute(sql);
+                    } catch (Exception ignored) {
+                        // Column/index may already exist; ignore to stay backward compatible.
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to initialize portal schema", ex);
+        }
+    }
+}

@@ -1,0 +1,16 @@
+push:
+  auth:
+    key: 替换为自己的key
+  security:
+    block-minutes: 30
+    fail-window-minutes: 5
+    max-fails: 5
+    rate-limit-capacity: 10
+    rate-limit-qps: 1
+  wecom:
+    app-key:
+    app-secret:
+    agent-id:
+    webhook-url:
+server:
+  port: 8000

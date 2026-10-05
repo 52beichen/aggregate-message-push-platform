@@ -1,0 +1,189 @@
+package dev.qingzhou.pushserver.manager.wecom;
+
+import dev.qingzhou.pushserver.config.PortalWecomProperties;
+import dev.qingzhou.pushserver.exception.PortalException;
+import dev.qingzhou.pushserver.exception.PortalStatus;
+import dev.qingzhou.pushserver.model.entity.portal.PortalProxyConfig;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+
+import java.io.IOException;
+import java.net.*;
+import java.net.http.HttpClient;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+@Component
+public class WecomApiClient {
+
+    private final PortalWecomProperties properties;
+    private final RestClient defaultClient;
+
+    public WecomApiClient(PortalWecomProperties properties) {
+        this.properties = properties;
+        this.defaultClient = RestClient.builder()
+                .baseUrl(properties.getBaseUrl())
+                .build();
+    }
+
+    private RestClient getClient(PortalProxyConfig proxyConfig) {
+        if (proxyConfig == null || !Boolean.TRUE.equals(proxyConfig.getActive())) {
+            return defaultClient;
+        }
+
+        Proxy.Type proxyType = "SOCKS5".equalsIgnoreCase(proxyConfig.getType()) ? Proxy.Type.SOCKS : Proxy.Type.HTTP;
+        InetSocketAddress proxyAddr = new InetSocketAddress(proxyConfig.getHost(), proxyConfig.getPort());
+
+        HttpClient.Builder builder = HttpClient.newBuilder()
+                .proxy(new ProxySelector() {
+                    @Override
+                    public List<Proxy> select(URI uri) {
+                        return Collections.singletonList(new Proxy(proxyType, proxyAddr));
+                    }
+
+                    @Override
+                    public void connectFailed(URI uri, SocketAddress sa, IOException ioe) {
+                        // 忽略连接失败回调
+                    }
+                });
+
+        if (StringUtils.hasText(proxyConfig.getUsername())) {
+            builder.authenticator(new Authenticator() {
+                @Override
+                protected PasswordAuthentication getPasswordAuthentication() {
+                    char[] password = proxyConfig.getPassword() != null ? proxyConfig.getPassword().toCharArray() : new char[0];
+                    return new PasswordAuthentication(proxyConfig.getUsername(), password);
+                }
+            });
+        }
+
+        return RestClient.builder()
+                .baseUrl(properties.getBaseUrl())
+                .requestFactory(new JdkClientHttpRequestFactory(builder.build()))
+                .build();
+    }
+
+    public WecomToken getToken(String corpId, String secret, PortalProxyConfig proxyConfig) {
+        try {
+            WecomToken response = getClient(proxyConfig).get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/cgi-bin/gettoken")
+                            .queryParam("corpid", corpId)
+                            .queryParam("corpsecret", secret)
+                            .build())
+                    .retrieve()
+                    .body(WecomToken.class);
+            return requireSuccess(response, "gettoken");
+        } catch (RestClientException ex) {
+            throw new PortalException(PortalStatus.BAD_GATEWAY, "调用企业微信 gettoken 接口失败", ex);
+        }
+    }
+
+    public WecomSuiteToken getSuiteToken(String suiteId, String suiteSecret, String suiteTicket,
+                                         PortalProxyConfig proxyConfig) {
+        try {
+            WecomSuiteToken response = getClient(proxyConfig).post()
+                    .uri("/cgi-bin/service/get_suite_token")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("suite_id", suiteId, "suite_secret", suiteSecret,
+                            "suite_ticket", suiteTicket))
+                    .retrieve()
+                    .body(WecomSuiteToken.class);
+            return requireSuccess(response, "service/get_suite_token");
+        } catch (RestClientException ex) {
+            throw new PortalException(PortalStatus.BAD_GATEWAY, "Failed to get WeCom suite_access_token", ex);
+        }
+    }
+
+    public WecomAgentInfo getAgentInfo(String accessToken, String agentId, PortalProxyConfig proxyConfig) {
+        try {
+            WecomAgentInfo response = getClient(proxyConfig).get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/cgi-bin/agent/get")
+                            .queryParam("access_token", accessToken)
+                            .queryParam("agentid", agentId)
+                            .build())
+                    .retrieve()
+                    .body(WecomAgentInfo.class);
+            return requireSuccess(response, "agent/get");
+        } catch (RestClientException ex) {
+            throw new PortalException(PortalStatus.BAD_GATEWAY, "调用企业微信 agent/get 接口失败", ex);
+        }
+    }
+
+    public WecomSendResponse sendMessage(String accessToken, Object payload, PortalProxyConfig proxyConfig) {
+        try {
+            WecomSendResponse response = getClient(proxyConfig).post()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/cgi-bin/message/send")
+                            .queryParam("access_token", accessToken)
+                            .build())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(payload)
+                    .retrieve()
+                    .body(WecomSendResponse.class);
+            if (response == null) {
+                throw new PortalException(PortalStatus.BAD_GATEWAY, "企业微信 message/send 响应为空");
+            }
+            return response;
+        } catch (RestClientException ex) {
+            throw new PortalException(PortalStatus.BAD_GATEWAY, "调用企业微信 message/send 接口失败", ex);
+        }
+    }
+
+    public void testConnectivity(PortalProxyConfig proxyConfig) {
+        if (proxyConfig == null) {
+            return;
+        }
+        try {
+            // 尝试访问企业微信根域名，仅测试网络连通性
+            getClient(proxyConfig).get()
+                    .uri("/cgi-bin/gettoken")
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception ex) {
+            String msg = ex.getMessage();
+            if (ex.getCause() != null) {
+                msg += " (" + ex.getCause().getMessage() + ")";
+            }
+            throw new PortalException(PortalStatus.BAD_REQUEST, "代理连接测试失败: " + msg);
+        }
+    }
+
+    private <T extends WecomResponse> T requireSuccess(
+            T response,
+            String action
+    ) {
+        if (response == null) {
+            throw new PortalException(PortalStatus.BAD_GATEWAY, "企业微信 " + action + " 响应为空");
+        }
+        if (!response.isSuccess()) {
+            if (Integer.valueOf(60020).equals(response.getErrcode())) {
+                String ip = "unknown";
+                String errmsg = response.getErrmsg();
+                if (errmsg != null && errmsg.contains("from ip: ")) {
+                    int start = errmsg.indexOf("from ip: ") + 9;
+                    int end = errmsg.indexOf(",", start);
+                    if (end == -1) {
+                        end = errmsg.length();
+                    }
+                    ip = errmsg.substring(start, end).trim();
+                }
+                throw new PortalException(
+                        PortalStatus.BAD_REQUEST,
+                        "企业微信 IP 白名单校验失败。请在企业微信应用设置的“企业可信 IP”列表中添加本服务器 IP [" + ip + "]。"
+                );
+            }
+            throw new PortalException(
+                    PortalStatus.BAD_REQUEST,
+                    "企业微信 " + action + " 失败: " + response.getErrmsg() + " (" + response.getErrcode() + ")"
+            );
+        }
+        return response;
+    }
+}

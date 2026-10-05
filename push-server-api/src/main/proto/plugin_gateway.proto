@@ -1,0 +1,156 @@
+syntax = "proto3";
+
+package dev.qingzhou.push.api.grpc;
+
+option java_multiple_files = true;
+option java_package = "dev.qingzhou.push.api.grpc";
+option java_outer_classname = "PluginGatewayProto";
+
+// Service: 插件网关
+service PluginGateway {
+    // 建立双向流 (Metadata: Authorization: Bearer <token>)
+    rpc Connect (stream PluginUpstreamPacket) returns (stream PlatformDownstreamPacket);
+}
+
+// --- 基础信封 (Observability) ---
+message PacketHeader {
+    string trace_id = 1;      // 分布式追踪 ID
+    int64 timestamp = 2;      // 时间戳
+    string plugin_key = 3;    // 插件标识
+    int32 protocol_ver = 4;   // 协议版本
+}
+
+// --- 顶层包 ---
+message PluginUpstreamPacket {
+    PacketHeader header = 1;
+    oneof payload {
+        RegisterRequest register = 2;
+        Heartbeat heartbeat = 3;
+        ActionAck action_ack = 4;      // 任务回执
+        PushRequest push_request = 5;  // 主动推送
+    }
+}
+
+message PlatformDownstreamPacket {
+    PacketHeader header = 1;
+    oneof payload {
+        RegisterResponse register_ack = 2;
+        UserActionEvent action_event = 3; // 下发任务
+        PushResponse push_response = 4;   // 推送确认
+    }
+}
+
+// --- 1. 注册与配置元数据 ---
+enum ConfigType {
+    CONFIG_TYPE_UNSPECIFIED = 0;
+    CONFIG_TYPE_TEXT = 1;
+    CONFIG_TYPE_PASSWORD = 2;
+    CONFIG_TYPE_BOOLEAN = 3;
+    CONFIG_TYPE_SELECT = 4;
+    CONFIG_TYPE_NUMBER = 5;
+    CONFIG_TYPE_TEXTAREA = 6;
+}
+
+message SelectOption {
+    string value = 1;
+    string label = 2;
+    string description = 3;
+}
+
+message ConfigDefinition {
+    string name = 1;
+    string label = 2;
+    ConfigType type = 3;
+    string default_value = 4;
+    bool required = 5;
+    string description = 6;
+    repeated SelectOption options = 7;
+}
+
+message RegisterRequest {
+    string plugin_key = 1;
+    string plugin_version = 2;
+    repeated string commands = 3;  // 路由提示
+    int32 max_concurrency = 4;     // 流控声明
+    repeated ConfigDefinition config_definitions = 5;
+}
+
+message RegisterResponse {
+    bool success = 1;
+    string reason = 2;
+    int32 server_protocol_ver = 3;
+}
+
+// --- 2. 心跳 ---
+message Heartbeat {
+    int32 current_inflight = 1; // 当前负载
+    int64 uptime_seconds = 2;
+}
+
+// --- 3. 任务下发 ---
+enum UserActionType {
+    USER_ACTION_TYPE_UNSPECIFIED = 0;
+    USER_ACTION_TYPE_TEXT = 1;
+    USER_ACTION_TYPE_CLICK = 2;
+    USER_ACTION_TYPE_IMAGE = 3;
+}
+
+message UserActionEvent {
+    string event_id = 1;
+    string app_id = 2;
+    string user_id = 3;
+    string user_name = 4;
+    UserActionType type = 5;
+    string content = 6;
+    string channel_source = 7;
+    map<string, string> plugin_config = 8; // 运行时配置注入
+}
+
+// --- 4. 可靠性回执 ---
+enum AckStatus {
+    ACK_STATUS_RECEIVED = 0;
+    ACK_STATUS_PROCESSING = 1;
+    ACK_STATUS_SUCCESS = 2;
+    ACK_STATUS_FAILED = 3;
+}
+
+message ActionAck {
+    string event_id = 1;
+    AckStatus status = 2;
+    string message = 3;
+}
+
+// --- 5. 消息推送 ---
+enum PushContentType {
+    PUSH_CONTENT_TYPE_TEXT = 0;
+    PUSH_CONTENT_TYPE_MARKDOWN = 1;
+    PUSH_CONTENT_TYPE_IMAGE = 2;
+    PUSH_CONTENT_TYPE_NEWS = 3;
+    PUSH_CONTENT_TYPE_TEXT_CARD = 4;
+}
+
+message PushArticle {
+    string title = 1;
+    string description = 2;
+    string url = 3;
+    string pic_url = 4;
+}
+
+message PushRequest {
+    string request_id = 1;
+    string app_id = 2;
+    string target_user_id = 3;
+    PushContentType type = 4;
+    string content = 5;
+    
+    string title = 6;
+    string url = 7;
+    string media_id = 8;
+    repeated PushArticle articles = 9;
+}
+
+message PushResponse {
+    bool success = 1;
+    string error_code = 2;
+    string error_msg = 3;
+}
