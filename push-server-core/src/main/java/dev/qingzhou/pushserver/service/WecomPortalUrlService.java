@@ -33,6 +33,11 @@ public class WecomPortalUrlService {
         return requireHttpsUrl(redirect, "WeCom client redirect URL");
     }
 
+    public String authorizationCallbackUrl() {
+        return requireHttpsUrl(properties.getAuthorizationCallbackUrl(),
+                "WeCom authorization callback URL");
+    }
+
     private String requireHttpsUrl(String value, String name) {
         if (!StringUtils.hasText(value)) throw new IllegalStateException(name + " is not configured");
         URI uri;

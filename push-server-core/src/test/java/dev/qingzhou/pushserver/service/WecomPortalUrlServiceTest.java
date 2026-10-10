@@ -32,6 +32,20 @@ class WecomPortalUrlServiceTest {
     }
 
     @Test
+    void returnsTheConfiguredAuthorizationCallbackBridge() {
+        PortalWecomProperties properties = new PortalWecomProperties();
+        properties.setAuthorizationCallbackUrl(
+                "https://u.beichenwl.cn/wework_suite_install_return.php");
+        WecomPortalUrlService service = new WecomPortalUrlService(properties);
+
+        assertEquals("https://u.beichenwl.cn/wework_suite_install_return.php",
+                service.authorizationCallbackUrl());
+
+        properties.setAuthorizationCallbackUrl("http://u.beichenwl.cn/callback");
+        assertThrows(IllegalStateException.class, service::authorizationCallbackUrl);
+    }
+
+    @Test
     void rejectsNonHttpsPublicOrigins() {
         PortalWecomProperties properties = new PortalWecomProperties();
         properties.setPublicBaseUrl("http://juhe.beichenwl.cn");

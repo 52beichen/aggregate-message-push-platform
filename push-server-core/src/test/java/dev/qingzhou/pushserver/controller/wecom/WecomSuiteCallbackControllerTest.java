@@ -1,6 +1,8 @@
 package dev.qingzhou.pushserver.controller.wecom;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import dev.qingzhou.pushserver.model.entity.portal.PortalWecomSuiteApp;
 import dev.qingzhou.pushserver.service.PortalWecomSuiteAppService;
@@ -43,6 +45,13 @@ class WecomSuiteCallbackControllerTest {
         controller.processDecrypted(8L, app, xml("cancel_auth", "<AuthCorpId>ww-corp</AuthCorpId>"));
 
         verify(service).cancelAuthorization(8L, "ww-corp");
+    }
+
+    @Test
+    void reportsReadyWhenOpenedWithoutWecomVerificationParameters() {
+        assertEquals("WeCom suite callback endpoint is ready",
+                controller.verify(8L, null, null, null, null));
+        verifyNoInteractions(service);
     }
 
     private String xml(String infoType, String content) {

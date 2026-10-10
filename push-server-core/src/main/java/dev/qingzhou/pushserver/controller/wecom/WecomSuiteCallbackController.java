@@ -31,15 +31,20 @@ public class WecomSuiteCallbackController {
 
     @GetMapping
     public String verify(@PathVariable Long suiteAppId,
-                         @RequestParam("msg_signature") String signature,
-                         @RequestParam("timestamp") String timestamp,
-                         @RequestParam("nonce") String nonce,
-                         @RequestParam("echostr") String echostr) {
+                         @RequestParam(name = "msg_signature", required = false) String signature,
+                         @RequestParam(name = "timestamp", required = false) String timestamp,
+                         @RequestParam(name = "nonce", required = false) String nonce,
+                         @RequestParam(name = "echostr", required = false) String echostr) {
+        if (!StringUtils.hasText(signature) || !StringUtils.hasText(timestamp)
+                || !StringUtils.hasText(nonce) || !StringUtils.hasText(echostr)) {
+            return "WeCom suite callback endpoint is ready";
+        }
         try {
             PortalWecomSuiteApp app = service.getById(suiteAppId);
             if (app == null) return "FAILED";
             return crypt(app).VerifyURL(signature, timestamp, nonce, echostr);
         } catch (Exception ex) {
+            log.warn("Failed to verify WeCom suite callback URL for app {}", suiteAppId, ex);
             return "FAILED";
         }
     }

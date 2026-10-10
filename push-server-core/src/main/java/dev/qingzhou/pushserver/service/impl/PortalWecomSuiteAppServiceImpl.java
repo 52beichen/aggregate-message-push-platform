@@ -17,6 +17,7 @@ import dev.qingzhou.pushserver.model.entity.portal.PortalWecomSuiteAuthorization
 import dev.qingzhou.pushserver.model.entity.portal.PortalWecomSuiteApp;
 import dev.qingzhou.pushserver.service.PortalProxyConfigService;
 import dev.qingzhou.pushserver.service.PortalWecomSuiteAppService;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
@@ -24,7 +25,6 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import org.springframework.web.util.UriComponentsBuilder;
 
 @Service
 public class PortalWecomSuiteAppServiceImpl extends ServiceImpl<PortalWecomSuiteAppMapper, PortalWecomSuiteApp>
@@ -160,14 +160,19 @@ public class PortalWecomSuiteAppServiceImpl extends ServiceImpl<PortalWecomSuite
         PortalProxyConfig proxy = proxyConfigService.getByUserId(app.getUserId());
         WecomPreAuthCode preAuthCode = wecomApiClient.getPreAuthCode(suiteAccessToken, proxy);
         requireText(preAuthCode.getPreAuthCode(), "pre_auth_code");
-        return UriComponentsBuilder.fromUriString("https://open.work.weixin.qq.com/3rdapp/install")
-                .queryParam("suite_id", app.getSuiteId())
-                .queryParam("pre_auth_code", preAuthCode.getPreAuthCode())
-                .queryParam("redirect_uri", redirectUri)
-                .queryParam("state", state)
-                .build()
-                .encode()
-                .toUriString();
+        return buildInstallUrl(app.getSuiteId(), preAuthCode.getPreAuthCode(), redirectUri, state);
+    }
+
+    static String buildInstallUrl(String suiteId, String preAuthCode, String redirectUri, String state) {
+        return "https://open.work.weixin.qq.com/3rdapp/install"
+                + "?suite_id=" + encodeQueryValue(suiteId)
+                + "&pre_auth_code=" + encodeQueryValue(preAuthCode)
+                + "&redirect_uri=" + encodeQueryValue(redirectUri)
+                + "&state=" + encodeQueryValue(state);
+    }
+
+    private static String encodeQueryValue(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
     @Override

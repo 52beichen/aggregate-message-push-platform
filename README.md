@@ -94,6 +94,7 @@ docker run -d \
   --name push-server \
   -p 8000:8000 \
   -e PUSH_PORTAL_WECOM_PUBLIC_BASE_URL=https://juhe.beichenwl.cn \
+  -e PUSH_PORTAL_WECOM_AUTH_CALLBACK_URL=https://u.beichenwl.cn/wework_suite_install_return.php \
   -e PUSH_PORTAL_WECOM_INTERNAL_API_KEY=请替换为随机密钥 \
   -e PUSH_PORTAL_WECOM_U_LOGIN_REDIRECT_URL=https://u.beichenwl.cn/wework_suite_install_return.php \
   -v $(pwd)/data:/app/data \
@@ -115,6 +116,7 @@ services:
       - "8000:8000"
     environment:
       PUSH_PORTAL_WECOM_PUBLIC_BASE_URL: https://juhe.beichenwl.cn
+      PUSH_PORTAL_WECOM_AUTH_CALLBACK_URL: https://u.beichenwl.cn/wework_suite_install_return.php
       PUSH_PORTAL_WECOM_INTERNAL_API_KEY: 请替换为随机密钥
       PUSH_PORTAL_WECOM_U_LOGIN_REDIRECT_URL: https://u.beichenwl.cn/wework_suite_install_return.php
     volumes:
@@ -129,11 +131,11 @@ docker-compose up -d
 
 ### 企业微信统一授权中心
 
-第三方应用的数据回调和安装授权由本服务统一处理。`PUSH_PORTAL_WECOM_PUBLIC_BASE_URL` 必须是反向代理到本服务的公网 HTTPS 地址，不要填写容器内部地址。`PUSH_PORTAL_WECOM_INTERNAL_API_KEY` 用于其他站点只读查询企业授权状态，建议使用 `openssl rand -hex 32` 生成，并在调用方配置相同的值。
+第三方应用的数据回调和安装授权由本服务统一处理。`PUSH_PORTAL_WECOM_PUBLIC_BASE_URL` 必须是反向代理到本服务的公网 HTTPS 地址，不要填写容器内部地址。`PUSH_PORTAL_WECOM_AUTH_CALLBACK_URL` 必须位于企业微信后台填写的“安装完成回调域名”之下；当前通过 `u.beichenwl.cn` 桥接回统一授权中心。`PUSH_PORTAL_WECOM_INTERNAL_API_KEY` 用于其他站点只读查询企业授权状态，建议使用 `openssl rand -hex 32` 生成，并在调用方配置相同的值。
 
 授权来源站点只能跳转到服务端白名单。当前 `u-login` 客户端由 `PUSH_PORTAL_WECOM_U_LOGIN_REDIRECT_URL` 配置；授权完成后只返回授权状态、企业 ID 和原登录恢复状态，不返回 `permanent_code` 或企业访问令牌。
 
-`u.beichenwl.cn` 的企业微信插件需要选择“第三方应用安装授权”模式，并填写以下三项：统一授权中心地址 `https://juhe.beichenwl.cn`、后台第三方应用的数字编号，以及与 `PUSH_PORTAL_WECOM_INTERNAL_API_KEY` 相同的内部密钥。企业微信服务商后台只配置聚合消息推送平台管理页显示的三条 HTTPS 地址，不再配置 PHP 项目的旧 Suite 回调地址。
+`u.beichenwl.cn` 的企业微信插件需要选择“第三方应用安装授权”模式，并填写以下三项：统一授权中心地址 `https://juhe.beichenwl.cn`、后台第三方应用的数字编号，以及与 `PUSH_PORTAL_WECOM_INTERNAL_API_KEY` 相同的内部密钥。企业微信服务商后台的数据/指令回调配置聚合消息推送平台管理页显示的 Suite 回调地址，“安装完成回调域名”填写 `u.beichenwl.cn`；授权码经 PHP 桥接页立即转交统一授权中心，不在 PHP 项目保存。
 
 ---
 

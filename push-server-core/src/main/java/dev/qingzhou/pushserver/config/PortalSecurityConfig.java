@@ -105,7 +105,9 @@ public class PortalSecurityConfig {
     ) throws Exception { // 注意这里要抛出异常
         http.authorizeHttpRequests(authorize -> authorize
                         // 静态资源和登录接口放行
-                        .requestMatchers("/","/api/login", "/login", "/index.html", "/assets/**", "/logo.png","/favicon.ico", "/api/captcha").permitAll()
+                        .requestMatchers("/", "/api/login", "/login", "/index.html", "/assets/**",
+                                "/logo.png", "/favicon.ico", "/WW_verify_3jvumA3phc61FUZG.txt",
+                                "/api/captcha").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers("/api/system/version").permitAll()
                         .requestMatchers("/error").permitAll()

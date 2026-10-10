@@ -9,6 +9,7 @@ public class PortalWecomProperties {
 
     private String baseUrl = "https://qyapi.weixin.qq.com";
     private String publicBaseUrl = "https://juhe.beichenwl.cn";
+    private String authorizationCallbackUrl = "https://u.beichenwl.cn/wework_suite_install_return.php";
     private String internalApiKey = "";
     private Map<String, String> clientRedirects = new LinkedHashMap<>(Map.of(
             "u-login", "https://u.beichenwl.cn/wework_suite_install_return.php"));
@@ -27,6 +28,14 @@ public class PortalWecomProperties {
 
     public void setPublicBaseUrl(String publicBaseUrl) {
         this.publicBaseUrl = publicBaseUrl;
+    }
+
+    public String getAuthorizationCallbackUrl() {
+        return authorizationCallbackUrl;
+    }
+
+    public void setAuthorizationCallbackUrl(String authorizationCallbackUrl) {
+        this.authorizationCallbackUrl = authorizationCallbackUrl;
     }
 
     public String getInternalApiKey() {
