@@ -127,10 +127,10 @@ index 2d98a06..bd9ff05 100644
    return http.get<Blob>('/captcha', { responseType: 'blob' })
  }
 diff --git a/src/api/types.ts b/src/api/types.ts
-index faf8fb5..0c8aea6 100644
+index faf8fb5..9c55874 100644
 --- a/src/api/types.ts
 +++ b/src/api/types.ts
-@@ -15,6 +15,16 @@ export interface PortalAppResponse {
+@@ -15,6 +15,19 @@ export interface PortalAppResponse {
    updatedAt: number
  }
  
@@ -140,6 +140,9 @@ index faf8fb5..0c8aea6 100644
 +  hasSuiteTicket: boolean
 +  hasSuiteAccessToken: boolean
 +  callbackUrl: string
++  installUrl: string
++  authorizationCallbackUrl: string
++  authorizedCorpCount: number
 +  createdAt: number
 +  updatedAt: number
 +}
@@ -352,7 +355,7 @@ index 341bc82..98fe61c 100644
        </div>
      </section>
 diff --git a/src/views/apps/AppsView.vue b/src/views/apps/AppsView.vue
-index 2cb7351..12f8e2e 100644
+index 2cb7351..e384a56 100644
 --- a/src/views/apps/AppsView.vue
 +++ b/src/views/apps/AppsView.vue
 @@ -1,18 +1,41 @@
@@ -401,7 +404,7 @@ index 2cb7351..12f8e2e 100644
  const selectedApp = ref<PortalAppResponse | null>(null)
  
  const form = reactive({
-@@ -28,6 +51,26 @@ const editForm = reactive({
+@@ -28,6 +51,28 @@ const editForm = reactive({
    encodingAesKey: '',
  })
  
@@ -419,6 +422,8 @@ index 2cb7351..12f8e2e 100644
 +  token: '',
 +  encodingAesKey: '',
 +  callbackUrl: '',
++  installUrl: '',
++  authorizationCallbackUrl: '',
 +})
 +
 +const addButtonText = computed(() =>
@@ -428,7 +433,7 @@ index 2cb7351..12f8e2e 100644
  const formatDate = (value?: number) => {
    if (!value) {
      return '--'
-@@ -38,7 +81,12 @@ const formatDate = (value?: number) => {
+@@ -38,7 +83,12 @@ const formatDate = (value?: number) => {
  const loadApps = async () => {
    isLoading.value = true
    try {
@@ -442,7 +447,7 @@ index 2cb7351..12f8e2e 100644
    } catch {
      // Error handled by interceptor
    } finally {
-@@ -46,19 +94,33 @@ const loadApps = async () => {
+@@ -46,19 +96,35 @@ const loadApps = async () => {
    }
  }
  
@@ -474,13 +479,15 @@ index 2cb7351..12f8e2e 100644
 +  suiteEditForm.token = ''
 +  suiteEditForm.encodingAesKey = ''
 +  suiteEditForm.callbackUrl = app.callbackUrl
++  suiteEditForm.installUrl = app.installUrl
++  suiteEditForm.authorizationCallbackUrl = app.authorizationCallbackUrl
 +  suiteEditDialogVisible.value = true
 +}
 +
  const openPluginsDialog = (app: PortalAppResponse) => {
    selectedApp.value = app
    pluginsDialogVisible.value = true
-@@ -89,11 +151,49 @@ const handleCreate = async () => {
+@@ -89,11 +155,49 @@ const handleCreate = async () => {
        agentId,
        secret: form.secret,
      })
@@ -532,7 +539,7 @@ index 2cb7351..12f8e2e 100644
    } catch {
      // Error handled by interceptor
    } finally {
-@@ -104,7 +204,11 @@ const handleCreate = async () => {
+@@ -104,7 +208,11 @@ const handleCreate = async () => {
  const handleUpdate = async () => {
    isSubmitting.value = true
    try {
@@ -545,7 +552,7 @@ index 2cb7351..12f8e2e 100644
        token: editForm.token,
        encodingAesKey: editForm.encodingAesKey,
      }
-@@ -114,7 +218,40 @@ const handleUpdate = async () => {
+@@ -114,7 +222,40 @@ const handleUpdate = async () => {
      await updateApp(editForm.id, payload)
      ElMessage.success('配置已更新')
      editDialogVisible.value = false
@@ -587,7 +594,7 @@ index 2cb7351..12f8e2e 100644
    } catch {
      // Error handled by interceptor
    } finally {
-@@ -140,7 +277,31 @@ const handleDelete = async (app: PortalAppResponse) => {
+@@ -140,7 +281,31 @@ const handleDelete = async (app: PortalAppResponse) => {
    try {
      await deleteApp(app.id)
      ElMessage.success('应用已删除')
@@ -620,7 +627,7 @@ index 2cb7351..12f8e2e 100644
    } catch {
      // Error handled by interceptor
    }
-@@ -151,7 +312,7 @@ const handleSync = async (app: PortalAppResponse) => {
+@@ -151,7 +316,7 @@ const handleSync = async (app: PortalAppResponse) => {
    try {
      await syncApp(app.id)
      ElMessage.success('应用已同步')
@@ -629,7 +636,7 @@ index 2cb7351..12f8e2e 100644
    } catch {
      // Error handled by interceptor
    } finally {
-@@ -159,6 +320,19 @@ const handleSync = async (app: PortalAppResponse) => {
+@@ -159,6 +324,23 @@ const handleSync = async (app: PortalAppResponse) => {
    }
  }
  
@@ -646,10 +653,14 @@ index 2cb7351..12f8e2e 100644
 +  }
 +}
 +
++const startSuiteAuthorization = (app: PortalSuiteAppResponse) => {
++  window.open(app.installUrl, '_blank', 'noopener,noreferrer')
++}
++
  onMounted(() => {
    loadApps()
  })
-@@ -169,88 +343,149 @@ onMounted(() => {
+@@ -169,88 +351,164 @@ onMounted(() => {
      <div class="page-heading">
        <div>
          <h1>应用管理</h1>
@@ -682,16 +693,16 @@ index 2cb7351..12f8e2e 100644
 -                <div class="app-meta">AgentId：{{ scope.row.agentId }}</div>
 -              </div>
 -            </div>
--          </template>
--        </el-table-column>
--        <el-table-column label="描述" min-width="200">
--          <template #default="scope">
--            <span>{{ scope.row.description || '暂无描述' }}</span>
 +      <el-tabs v-model="activeAppType" class="app-type-tabs">
 +        <el-tab-pane name="self-built">
 +          <template #label>
 +            <span>自建应用 <el-tag size="small" type="info">{{ apps.length }}</el-tag></span>
            </template>
+-        </el-table-column>
+-        <el-table-column label="描述" min-width="200">
+-          <template #default="scope">
+-            <span>{{ scope.row.description || '暂无描述' }}</span>
+-          </template>
 -        </el-table-column>
 -        <el-table-column label="更新时间" min-width="160">
 -          <template #default="scope">
@@ -810,6 +821,11 @@ index 2cb7351..12f8e2e 100644
 +                </el-tag>
 +              </template>
 +            </el-table-column>
++            <el-table-column label="已授权企业" min-width="120">
++              <template #default="scope">
++                {{ scope.row.authorizedCorpCount }}
++              </template>
++            </el-table-column>
 +            <el-table-column label="回调 URL" min-width="300">
 +              <template #default="scope">
 +                <div class="callback-cell">
@@ -828,8 +844,18 @@ index 2cb7351..12f8e2e 100644
 +                {{ formatDate(scope.row.updatedAt) }}
 +              </template>
 +            </el-table-column>
-+            <el-table-column label="操作" min-width="230" fixed="right">
++            <el-table-column label="操作" min-width="310" fixed="right">
 +              <template #default="scope">
++                <el-button
++                  size="small"
++                  text
++                  type="primary"
++                  :icon="Connection"
++                  :disabled="!scope.row.hasSuiteTicket"
++                  @click="startSuiteAuthorization(scope.row)"
++                >
++                  授权应用
++                </el-button>
 +                <el-button size="small" text :icon="Setting" @click="openSuiteEditDialog(scope.row)">
 +                  配置
 +                </el-button>
@@ -865,7 +891,7 @@ index 2cb7351..12f8e2e 100644
          </el-form-item>
        </el-form>
        <template #footer>
-@@ -261,13 +496,52 @@ onMounted(() => {
+@@ -261,13 +519,52 @@ onMounted(() => {
        </template>
      </el-dialog>
  
@@ -920,7 +946,7 @@ index 2cb7351..12f8e2e 100644
          </el-form-item>
          <el-divider content-position="left">接收消息配置</el-divider>
          <el-form-item label="Token">
-@@ -278,7 +552,7 @@ onMounted(() => {
+@@ -278,29 +575,20 @@ onMounted(() => {
          </el-form-item>
          <el-form-item label="回调 URL">
            <div class="callback-url-container">
@@ -929,7 +955,11 @@ index 2cb7351..12f8e2e 100644
                <template #append>
                  <el-button :icon="CopyDocument" @click="copyToClipboard(getCallbackUrl(editForm.id))" />
                </template>
-@@ -290,17 +564,9 @@ onMounted(() => {
+             </el-input>
+           </div>
+         </el-form-item>
+-
+         <el-collapse class="guide-collapse">
            <el-collapse-item title="配置指引" name="1">
              <div class="guide-content">
                <ol>
@@ -950,7 +980,7 @@ index 2cb7351..12f8e2e 100644
                </ol>
              </div>
            </el-collapse-item>
-@@ -314,6 +580,65 @@ onMounted(() => {
+@@ -314,6 +602,92 @@ onMounted(() => {
        </template>
      </el-dialog>
  
@@ -992,6 +1022,32 @@ index 2cb7351..12f8e2e 100644
 +            </el-input>
 +          </div>
 +        </el-form-item>
++        <el-form-item label="安装授权 URL">
++          <div class="callback-url-container">
++            <el-input :model-value="suiteEditForm.installUrl" readonly>
++              <template #append>
++                <el-button
++                  :icon="CopyDocument"
++                  title="复制安装授权 URL"
++                  @click="copyToClipboard(suiteEditForm.installUrl)"
++                />
++              </template>
++            </el-input>
++          </div>
++        </el-form-item>
++        <el-form-item label="授权完成回调">
++          <div class="callback-url-container">
++            <el-input :model-value="suiteEditForm.authorizationCallbackUrl" readonly>
++              <template #append>
++                <el-button
++                  :icon="CopyDocument"
++                  title="复制授权完成回调 URL"
++                  @click="copyToClipboard(suiteEditForm.authorizationCallbackUrl)"
++                />
++              </template>
++            </el-input>
++          </div>
++        </el-form-item>
 +        <el-collapse class="guide-collapse">
 +          <el-collapse-item title="企业微信第三方应用回调配置指引" name="suite-guide">
 +            <div class="guide-content">
@@ -1000,6 +1056,7 @@ index 2cb7351..12f8e2e 100644
 +                <li>在企业微信服务商后台打开该第三方应用的回调配置。</li>
 +                <li>填写回调 URL，并使用与本系统一致的 Token 和 EncodingAESKey。</li>
 +                <li>企业微信验证通过并推送 SuiteTicket 后，列表状态会变为“已收到 SuiteTicket”。</li>
++                <li>将“授权完成回调”对应的域名配置到服务商后台，然后点击“授权应用”完成测试企业安装。</li>
 +              </ol>
 +            </div>
 +          </el-collapse-item>
@@ -1016,7 +1073,7 @@ index 2cb7351..12f8e2e 100644
      <AppPluginsDialog
        v-if="selectedApp"
        v-model:visible="pluginsDialogVisible"
-@@ -324,6 +649,16 @@ onMounted(() => {
+@@ -324,6 +698,16 @@ onMounted(() => {
  </template>
  
  <style scoped>
@@ -1033,7 +1090,7 @@ index 2cb7351..12f8e2e 100644
  .app-cell {
    display: flex;
    align-items: center;
-@@ -340,6 +675,23 @@ onMounted(() => {
+@@ -340,6 +724,23 @@ onMounted(() => {
    color: var(--el-text-color-secondary);
  }
  
@@ -1057,7 +1114,7 @@ index 2cb7351..12f8e2e 100644
  .callback-url-container {
    width: 100%;
  }
-@@ -363,7 +715,7 @@ onMounted(() => {
+@@ -363,7 +764,7 @@ onMounted(() => {
  
  .guide-content {
    font-size: 13px;
@@ -1066,7 +1123,7 @@ index 2cb7351..12f8e2e 100644
    color: var(--el-text-color-regular);
  }
  
-@@ -371,10 +723,4 @@ onMounted(() => {
+@@ -371,10 +772,4 @@ onMounted(() => {
    padding-left: 18px;
    margin: 0;
  }
@@ -1077,11 +1134,3 @@ index 2cb7351..12f8e2e 100644
 -  list-style-type: circle;
 -}
  </style>
-warning: in the working copy of 'index.html', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'src/api/apps.ts', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'src/api/login.ts', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'src/api/types.ts', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'src/layouts/AdminLayout.vue', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'src/views/InitView.vue', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'src/views/LoginView.vue', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'src/views/apps/AppsView.vue', LF will be replaced by CRLF the next time Git touches it

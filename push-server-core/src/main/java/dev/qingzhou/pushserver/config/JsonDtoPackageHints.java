@@ -18,7 +18,9 @@ public class JsonDtoPackageHints {
         // 你要批量注册的 DTO 包（可加多个）
         private static final String[] DTO_PACKAGES = {
                 "dev.qingzhou.pushserver.model.dto",
-                "dev.qingzhou.pushserver.model.dto.portal"
+                "dev.qingzhou.pushserver.model.dto.portal",
+                "dev.qingzhou.pushserver.model.vo.portal",
+                "dev.qingzhou.pushserver.manager.wecom"
         };
 
         @Override

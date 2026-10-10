@@ -6,6 +6,9 @@ public class PortalSuiteAppResponse {
     private boolean hasSuiteTicket;
     private boolean hasSuiteAccessToken;
     private String callbackUrl;
+    private String installUrl;
+    private String authorizationCallbackUrl;
+    private long authorizedCorpCount;
     private Long createdAt;
     private Long updatedAt;
 
@@ -19,6 +22,12 @@ public class PortalSuiteAppResponse {
     public void setHasSuiteAccessToken(boolean hasSuiteAccessToken) { this.hasSuiteAccessToken = hasSuiteAccessToken; }
     public String getCallbackUrl() { return callbackUrl; }
     public void setCallbackUrl(String callbackUrl) { this.callbackUrl = callbackUrl; }
+    public String getInstallUrl() { return installUrl; }
+    public void setInstallUrl(String installUrl) { this.installUrl = installUrl; }
+    public String getAuthorizationCallbackUrl() { return authorizationCallbackUrl; }
+    public void setAuthorizationCallbackUrl(String authorizationCallbackUrl) { this.authorizationCallbackUrl = authorizationCallbackUrl; }
+    public long getAuthorizedCorpCount() { return authorizedCorpCount; }
+    public void setAuthorizedCorpCount(long authorizedCorpCount) { this.authorizedCorpCount = authorizedCorpCount; }
     public Long getCreatedAt() { return createdAt; }
     public void setCreatedAt(Long createdAt) { this.createdAt = createdAt; }
     public Long getUpdatedAt() { return updatedAt; }

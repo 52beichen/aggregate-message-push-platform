@@ -100,6 +100,58 @@ public class WecomApiClient {
         }
     }
 
+    public WecomPreAuthCode getPreAuthCode(String suiteAccessToken, PortalProxyConfig proxyConfig) {
+        try {
+            WecomPreAuthCode response = getClient(proxyConfig).get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/cgi-bin/service/get_pre_auth_code")
+                            .queryParam("suite_access_token", suiteAccessToken)
+                            .build())
+                    .retrieve()
+                    .body(WecomPreAuthCode.class);
+            return requireSuccess(response, "service/get_pre_auth_code");
+        } catch (RestClientException ex) {
+            throw new PortalException(PortalStatus.BAD_GATEWAY, "Failed to get WeCom pre_auth_code", ex);
+        }
+    }
+
+    public WecomAuthorizationResponse getPermanentCode(String suiteAccessToken, String authCode,
+                                                        PortalProxyConfig proxyConfig) {
+        try {
+            WecomAuthorizationResponse response = getClient(proxyConfig).post()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/cgi-bin/service/get_permanent_code")
+                            .queryParam("suite_access_token", suiteAccessToken)
+                            .build())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("auth_code", authCode))
+                    .retrieve()
+                    .body(WecomAuthorizationResponse.class);
+            return requireSuccess(response, "service/get_permanent_code");
+        } catch (RestClientException ex) {
+            throw new PortalException(PortalStatus.BAD_GATEWAY, "Failed to exchange WeCom permanent_code", ex);
+        }
+    }
+
+    public WecomAuthorizationResponse getAuthorizationInfo(String suiteAccessToken, String corpId,
+                                                            String permanentCode,
+                                                            PortalProxyConfig proxyConfig) {
+        try {
+            WecomAuthorizationResponse response = getClient(proxyConfig).post()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/cgi-bin/service/get_auth_info")
+                            .queryParam("suite_access_token", suiteAccessToken)
+                            .build())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("auth_corpid", corpId, "permanent_code", permanentCode))
+                    .retrieve()
+                    .body(WecomAuthorizationResponse.class);
+            return requireSuccess(response, "service/get_auth_info");
+        } catch (RestClientException ex) {
+            throw new PortalException(PortalStatus.BAD_GATEWAY, "Failed to get WeCom authorization info", ex);
+        }
+    }
+
     public WecomAgentInfo getAgentInfo(String accessToken, String agentId, PortalProxyConfig proxyConfig) {
         try {
             WecomAgentInfo response = getClient(proxyConfig).get()

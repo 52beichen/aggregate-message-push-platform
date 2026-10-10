@@ -6,6 +6,9 @@ import dev.qingzhou.pushserver.model.entity.portal.PortalWecomSuiteApp;
 import dev.qingzhou.pushserver.service.PortalWecomSuiteAppService;
 import java.io.StringReader;
 import javax.xml.parsers.DocumentBuilderFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,6 +22,7 @@ import org.xml.sax.InputSource;
 @RestController
 @RequestMapping("/v2/wecom/suite-callback/{suiteAppId}")
 public class WecomSuiteCallbackController {
+    private static final Logger log = LoggerFactory.getLogger(WecomSuiteCallbackController.class);
     private final PortalWecomSuiteAppService service;
 
     public WecomSuiteCallbackController(PortalWecomSuiteAppService service) {
@@ -50,17 +54,33 @@ public class WecomSuiteCallbackController {
             PortalWecomSuiteApp app = service.getById(suiteAppId);
             if (app == null) return "FAILED";
             String xml = crypt(app).DecryptMsg(signature, timestamp, nonce, body);
-            if ("suite_ticket".equalsIgnoreCase(readTag(xml, "InfoType"))) {
-                service.saveSuiteTicket(suiteAppId, readTag(xml, "SuiteId"), readTag(xml, "SuiteTicket"));
-                try {
-                    service.refreshSuiteAccessToken(suiteAppId);
-                } catch (RuntimeException ignored) {
-                    // Keep the ticket; the next callback or an explicit refresh can retry token exchange.
-                }
-            }
+            processDecrypted(suiteAppId, app, xml);
             return "success";
         } catch (Exception ex) {
+            log.warn("Failed to process WeCom suite callback for app {}", suiteAppId, ex);
             return "FAILED";
+        }
+    }
+
+    void processDecrypted(Long suiteAppId, PortalWecomSuiteApp app, String xml) throws Exception {
+        String suiteId = readTag(xml, "SuiteId");
+        if (StringUtils.hasText(suiteId) && !app.getSuiteId().equals(suiteId)) {
+            throw new IllegalArgumentException("SuiteID does not match callback");
+        }
+        String infoType = readTag(xml, "InfoType");
+        if ("suite_ticket".equalsIgnoreCase(infoType)) {
+            service.saveSuiteTicket(suiteAppId, suiteId, readTag(xml, "SuiteTicket"));
+            try {
+                service.refreshSuiteAccessToken(suiteAppId);
+            } catch (RuntimeException ex) {
+                log.warn("Stored SuiteTicket but failed to refresh suite token for app {}", suiteAppId, ex);
+            }
+        } else if ("create_auth".equalsIgnoreCase(infoType)) {
+            service.completeAuthorization(suiteAppId, readTag(xml, "AuthCode"));
+        } else if ("change_auth".equalsIgnoreCase(infoType)) {
+            service.refreshAuthorization(suiteAppId, readTag(xml, "AuthCorpId"));
+        } else if ("cancel_auth".equalsIgnoreCase(infoType)) {
+            service.cancelAuthorization(suiteAppId, readTag(xml, "AuthCorpId"));
         }
     }
 

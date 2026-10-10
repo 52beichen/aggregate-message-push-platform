@@ -5,7 +5,9 @@ import dev.qingzhou.pushserver.common.PortalSessionSupport;
 import dev.qingzhou.pushserver.model.dto.portal.PortalSuiteAppCreateRequest;
 import dev.qingzhou.pushserver.model.dto.portal.PortalSuiteAppUpdateRequest;
 import dev.qingzhou.pushserver.model.entity.portal.PortalWecomSuiteApp;
+import dev.qingzhou.pushserver.model.entity.portal.PortalWecomSuiteAuthorization;
 import dev.qingzhou.pushserver.model.vo.portal.PortalSuiteAppResponse;
+import dev.qingzhou.pushserver.model.vo.portal.PortalSuiteAuthorizationResponse;
 import dev.qingzhou.pushserver.service.PortalWecomSuiteAppService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -71,6 +73,15 @@ public class PortalSuiteAppController {
         return PortalResponse.ok(toResponse(service.requireByUser(userId, suiteAppId), request));
     }
 
+    @GetMapping("/{suiteAppId}/authorizations")
+    public PortalResponse<List<PortalSuiteAuthorizationResponse>> authorizations(@PathVariable Long suiteAppId,
+                                                                                 HttpSession session) {
+        Long userId = PortalSessionSupport.requireUserId(session);
+        return PortalResponse.ok(service.listAuthorizations(userId, suiteAppId).stream()
+                .map(this::toAuthorizationResponse)
+                .toList());
+    }
+
     private PortalSuiteAppResponse toResponse(PortalWecomSuiteApp app, HttpServletRequest request) {
         PortalSuiteAppResponse response = new PortalSuiteAppResponse();
         response.setId(app.getId());
@@ -83,6 +94,29 @@ public class PortalSuiteAppController {
         response.setUpdatedAt(app.getUpdatedAt());
         response.setCallbackUrl(ServletUriComponentsBuilder.fromContextPath(request)
                 .path("/api/v2/wecom/suite-callback/{id}").buildAndExpand(app.getId()).toUriString());
+        response.setInstallUrl(ServletUriComponentsBuilder.fromContextPath(request)
+                .path("/api/v2/wecom/suite-auth/{id}/install").buildAndExpand(app.getId()).toUriString());
+        response.setAuthorizationCallbackUrl(ServletUriComponentsBuilder.fromContextPath(request)
+                .path("/api/v2/wecom/suite-auth/{id}/complete").buildAndExpand(app.getId()).toUriString());
+        response.setAuthorizedCorpCount(service.listAuthorizations(app.getUserId(), app.getId()).stream()
+                .filter(authorization -> Integer.valueOf(1).equals(authorization.getStatus()))
+                .count());
+        return response;
+    }
+
+    private PortalSuiteAuthorizationResponse toAuthorizationResponse(PortalWecomSuiteAuthorization authorization) {
+        PortalSuiteAuthorizationResponse response = new PortalSuiteAuthorizationResponse();
+        response.setId(authorization.getId());
+        response.setCorpId(authorization.getCorpId());
+        response.setCorpName(authorization.getCorpName());
+        response.setCorpFullName(authorization.getCorpFullName());
+        response.setCorpType(authorization.getCorpType());
+        response.setCorpSquareLogoUrl(authorization.getCorpSquareLogoUrl());
+        response.setAgentId(authorization.getAgentId());
+        response.setActive(Integer.valueOf(1).equals(authorization.getStatus()));
+        response.setAuthorizedAt(authorization.getAuthorizedAt());
+        response.setCancelledAt(authorization.getCancelledAt());
+        response.setUpdatedAt(authorization.getUpdatedAt());
         return response;
     }
 }

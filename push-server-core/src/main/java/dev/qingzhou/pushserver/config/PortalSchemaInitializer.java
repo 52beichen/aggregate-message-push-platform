@@ -79,6 +79,44 @@ public class PortalSchemaInitializer {
                 )
                 """);
         statements.add("""
+                CREATE TABLE IF NOT EXISTS v2_wecom_suite_authorization (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    suite_app_id INTEGER NOT NULL,
+                    corp_id TEXT NOT NULL,
+                    permanent_code TEXT NOT NULL,
+                    corp_access_token TEXT,
+                    corp_access_token_expires_at INTEGER,
+                    agent_id TEXT,
+                    corp_name TEXT,
+                    corp_full_name TEXT,
+                    corp_type TEXT,
+                    corp_square_logo_url TEXT,
+                    status INTEGER NOT NULL DEFAULT 1,
+                    authorized_at INTEGER NOT NULL,
+                    cancelled_at INTEGER,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(suite_app_id, corp_id)
+                )
+                """);
+        statements.add("""
+                CREATE TABLE IF NOT EXISTS v2_wecom_suite_auth_code (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    suite_app_id INTEGER NOT NULL,
+                    auth_code_hash TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    corp_id TEXT,
+                    error_message TEXT,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(suite_app_id, auth_code_hash)
+                )
+                """);
+        statements.add("""
+                CREATE INDEX IF NOT EXISTS idx_v2_wecom_suite_authorization_app
+                ON v2_wecom_suite_authorization(suite_app_id, status)
+                """);
+        statements.add("""
                 CREATE TABLE IF NOT EXISTS v2_app_api_key (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     app_id INTEGER NOT NULL UNIQUE,

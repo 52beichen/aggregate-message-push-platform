@@ -17,6 +17,7 @@ info:
 
 server:
   port: 8000
+  forward-headers-strategy: framework
 #  yDEHjQUcqGgD
 logging:
   level:
