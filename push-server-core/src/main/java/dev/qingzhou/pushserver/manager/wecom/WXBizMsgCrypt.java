@@ -136,6 +136,10 @@ public class WXBizMsgCrypt {
      * @throws AesException aes解密失败
      */
     String decrypt(String text) throws AesException {
+        return decrypt(text, true);
+    }
+
+    String decrypt(String text, boolean validateReceiveId) throws AesException {
         byte[] original;
         try {
             // 设置解密模式为AES的CBC模式
@@ -172,7 +176,7 @@ public class WXBizMsgCrypt {
         }
 
         // receiveId不相同的情况
-        if (!from_receiveId.equals(receiveId)) {
+        if (validateReceiveId && !from_receiveId.equals(receiveId)) {
             throw new AesException(AesException.ValidateCorpidError);
         }
         return xmlContent;
@@ -220,13 +224,18 @@ public class WXBizMsgCrypt {
      * @throws AesException 执行失败，请查看该异常的错误码和具体的错误信息
      */
     public String VerifyURL(String msgSignature, String timeStamp, String nonce, String echoStr) throws AesException {
+        return VerifyURL(msgSignature, timeStamp, nonce, echoStr, true);
+    }
+
+    public String VerifyURL(String msgSignature, String timeStamp, String nonce, String echoStr,
+                            boolean validateReceiveId) throws AesException {
         String signature = SHA1.getSHA1(token, timeStamp, nonce, echoStr);
 
         if (!signature.equals(msgSignature)) {
             throw new AesException(AesException.ValidateSignatureError);
         }
 
-        String result = decrypt(echoStr);
+        String result = decrypt(echoStr, validateReceiveId);
         return result;
     }
 

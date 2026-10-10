@@ -21,7 +21,7 @@ class WecomSuiteCallbackControllerTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        controller = new WecomSuiteCallbackController(service);
+        controller = new WecomSuiteCallbackController(service, Runnable::run);
         app = new PortalWecomSuiteApp();
         app.setSuiteId("ww-suite");
     }

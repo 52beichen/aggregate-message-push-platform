@@ -5,9 +5,11 @@ import dev.qingzhou.pushserver.manager.wecom.WXBizMsgCrypt;
 import dev.qingzhou.pushserver.model.entity.portal.PortalWecomSuiteApp;
 import dev.qingzhou.pushserver.service.PortalWecomSuiteAppService;
 import java.io.StringReader;
+import java.util.concurrent.Executor;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,9 +26,12 @@ import org.xml.sax.InputSource;
 public class WecomSuiteCallbackController {
     private static final Logger log = LoggerFactory.getLogger(WecomSuiteCallbackController.class);
     private final PortalWecomSuiteAppService service;
+    private final Executor callbackExecutor;
 
-    public WecomSuiteCallbackController(PortalWecomSuiteAppService service) {
+    public WecomSuiteCallbackController(PortalWecomSuiteAppService service,
+                                        @Qualifier("wecomCallbackExecutor") Executor callbackExecutor) {
         this.service = service;
+        this.callbackExecutor = callbackExecutor;
     }
 
     @GetMapping
@@ -42,7 +47,9 @@ public class WecomSuiteCallbackController {
         try {
             PortalWecomSuiteApp app = service.getById(suiteAppId);
             if (app == null) return "FAILED";
-            return crypt(app).VerifyURL(signature, timestamp, nonce, echostr);
+            // Data callback validation may use the provider CorpID while instruction callbacks use SuiteID.
+            // Signature and AES validation still authenticate the request; POST callbacks remain SuiteID-strict.
+            return crypt(app).VerifyURL(signature, timestamp, nonce, echostr, false);
         } catch (Exception ex) {
             log.warn("Failed to verify WeCom suite callback URL for app {}", suiteAppId, ex);
             return "FAILED";
@@ -59,7 +66,13 @@ public class WecomSuiteCallbackController {
             PortalWecomSuiteApp app = service.getById(suiteAppId);
             if (app == null) return "FAILED";
             String xml = crypt(app).DecryptMsg(signature, timestamp, nonce, body);
-            processDecrypted(suiteAppId, app, xml);
+            callbackExecutor.execute(() -> {
+                try {
+                    processDecrypted(suiteAppId, app, xml);
+                } catch (Exception ex) {
+                    log.warn("Failed to process decrypted WeCom suite callback for app {}", suiteAppId, ex);
+                }
+            });
             return "success";
         } catch (Exception ex) {
             log.warn("Failed to process WeCom suite callback for app {}", suiteAppId, ex);
