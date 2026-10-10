@@ -1,8 +1,11 @@
 # syntax=docker/dockerfile:1.6
-FROM debian:12-slim AS base
+FROM ubuntu:24.04 AS base
 
 WORKDIR /app
-RUN mkdir -p /app/data
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates zlib1g \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /app/data
 
 EXPOSE 8000
 
