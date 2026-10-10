@@ -113,6 +113,21 @@ public class PortalSchemaInitializer {
                 )
                 """);
         statements.add("""
+                CREATE TABLE IF NOT EXISTS v2_wecom_authorization_session (
+                    state TEXT PRIMARY KEY,
+                    suite_app_id INTEGER NOT NULL,
+                    client_id TEXT,
+                    resume_state TEXT,
+                    expires_at INTEGER NOT NULL,
+                    used_at INTEGER,
+                    created_at INTEGER NOT NULL
+                )
+                """);
+        statements.add("""
+                CREATE INDEX IF NOT EXISTS idx_v2_wecom_authorization_session_expiry
+                ON v2_wecom_authorization_session(expires_at, used_at)
+                """);
+        statements.add("""
                 CREATE INDEX IF NOT EXISTS idx_v2_wecom_suite_authorization_app
                 ON v2_wecom_suite_authorization(suite_app_id, status)
                 """);

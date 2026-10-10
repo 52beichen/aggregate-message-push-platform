@@ -4,6 +4,10 @@ services:
     container_name: push-server
     ports:
       - "8000:8000"
+    environment:
+      PUSH_PORTAL_WECOM_PUBLIC_BASE_URL: ${PUSH_PORTAL_WECOM_PUBLIC_BASE_URL:-https://juhe.beichenwl.cn}
+      PUSH_PORTAL_WECOM_INTERNAL_API_KEY: ${PUSH_PORTAL_WECOM_INTERNAL_API_KEY:-}
+      PUSH_PORTAL_WECOM_U_LOGIN_REDIRECT_URL: ${PUSH_PORTAL_WECOM_U_LOGIN_REDIRECT_URL:-https://u.beichenwl.cn/wework_suite_install_return.php}
     volumes:
       - ./data:/app/data
     restart: unless-stopped

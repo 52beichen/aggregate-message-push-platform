@@ -9,7 +9,7 @@ import dev.qingzhou.pushserver.model.entity.portal.PortalWecomSuiteAuthorization
 import dev.qingzhou.pushserver.model.vo.portal.PortalSuiteAppResponse;
 import dev.qingzhou.pushserver.model.vo.portal.PortalSuiteAuthorizationResponse;
 import dev.qingzhou.pushserver.service.PortalWecomSuiteAppService;
-import jakarta.servlet.http.HttpServletRequest;
+import dev.qingzhou.pushserver.service.WecomPortalUrlService;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -21,40 +21,41 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/v2/apps/third-party")
 public class PortalSuiteAppController {
     private final PortalWecomSuiteAppService service;
+    private final WecomPortalUrlService urlService;
 
-    public PortalSuiteAppController(PortalWecomSuiteAppService service) {
+    public PortalSuiteAppController(PortalWecomSuiteAppService service, WecomPortalUrlService urlService) {
         this.service = service;
+        this.urlService = urlService;
     }
 
     @PostMapping
     public PortalResponse<PortalSuiteAppResponse> create(@Valid @RequestBody PortalSuiteAppCreateRequest request,
-                                                         HttpSession session, HttpServletRequest servletRequest) {
+                                                         HttpSession session) {
         Long userId = PortalSessionSupport.requireUserId(session);
         PortalWecomSuiteApp app = service.create(userId, request.getSuiteId(), request.getSuiteSecret(),
                 request.getToken(), request.getEncodingAesKey());
-        return PortalResponse.ok(toResponse(app, servletRequest));
+        return PortalResponse.ok(toResponse(app));
     }
 
     @GetMapping
-    public PortalResponse<List<PortalSuiteAppResponse>> list(HttpSession session, HttpServletRequest request) {
+    public PortalResponse<List<PortalSuiteAppResponse>> list(HttpSession session) {
         Long userId = PortalSessionSupport.requireUserId(session);
-        return PortalResponse.ok(service.listByUser(userId).stream().map(app -> toResponse(app, request)).toList());
+        return PortalResponse.ok(service.listByUser(userId).stream().map(this::toResponse).toList());
     }
 
     @PutMapping("/{suiteAppId}")
     public PortalResponse<PortalSuiteAppResponse> update(@PathVariable Long suiteAppId,
                                                          @RequestBody PortalSuiteAppUpdateRequest request,
-                                                         HttpSession session, HttpServletRequest servletRequest) {
+                                                         HttpSession session) {
         Long userId = PortalSessionSupport.requireUserId(session);
         PortalWecomSuiteApp app = service.update(userId, suiteAppId, request.getSuiteSecret(),
                 request.getToken(), request.getEncodingAesKey());
-        return PortalResponse.ok(toResponse(app, servletRequest));
+        return PortalResponse.ok(toResponse(app));
     }
 
     @DeleteMapping("/{suiteAppId}")
@@ -65,12 +66,11 @@ public class PortalSuiteAppController {
 
     @PostMapping("/{suiteAppId}/refresh-token")
     public PortalResponse<PortalSuiteAppResponse> refreshToken(@PathVariable Long suiteAppId,
-                                                                 HttpSession session,
-                                                                 HttpServletRequest request) {
+                                                                 HttpSession session) {
         Long userId = PortalSessionSupport.requireUserId(session);
         service.requireByUser(userId, suiteAppId);
         service.refreshSuiteAccessToken(suiteAppId);
-        return PortalResponse.ok(toResponse(service.requireByUser(userId, suiteAppId), request));
+        return PortalResponse.ok(toResponse(service.requireByUser(userId, suiteAppId)));
     }
 
     @GetMapping("/{suiteAppId}/authorizations")
@@ -82,7 +82,7 @@ public class PortalSuiteAppController {
                 .toList());
     }
 
-    private PortalSuiteAppResponse toResponse(PortalWecomSuiteApp app, HttpServletRequest request) {
+    private PortalSuiteAppResponse toResponse(PortalWecomSuiteApp app) {
         PortalSuiteAppResponse response = new PortalSuiteAppResponse();
         response.setId(app.getId());
         response.setSuiteId(app.getSuiteId());
@@ -92,12 +92,10 @@ public class PortalSuiteAppController {
                 && app.getSuiteAccessTokenExpiresAt() > System.currentTimeMillis());
         response.setCreatedAt(app.getCreatedAt());
         response.setUpdatedAt(app.getUpdatedAt());
-        response.setCallbackUrl(ServletUriComponentsBuilder.fromContextPath(request)
-                .path("/api/v2/wecom/suite-callback/{id}").buildAndExpand(app.getId()).toUriString());
-        response.setInstallUrl(ServletUriComponentsBuilder.fromContextPath(request)
-                .path("/api/v2/wecom/suite-auth/{id}/install").buildAndExpand(app.getId()).toUriString());
-        response.setAuthorizationCallbackUrl(ServletUriComponentsBuilder.fromContextPath(request)
-                .path("/api/v2/wecom/suite-auth/{id}/complete").buildAndExpand(app.getId()).toUriString());
+        response.setCallbackUrl(urlService.publicUrl("/api/v2/wecom/suite-callback/" + app.getId()));
+        response.setInstallUrl(urlService.publicUrl("/api/v2/wecom/suite-auth/" + app.getId() + "/install"));
+        response.setAuthorizationCallbackUrl(urlService.publicUrl(
+                "/api/v2/wecom/suite-auth/" + app.getId() + "/complete"));
         response.setAuthorizedCorpCount(service.listAuthorizations(app.getUserId(), app.getId()).stream()
                 .filter(authorization -> Integer.valueOf(1).equals(authorization.getStatus()))
                 .count());

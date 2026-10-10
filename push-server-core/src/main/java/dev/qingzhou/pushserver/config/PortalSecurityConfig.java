@@ -112,6 +112,7 @@ public class PortalSecurityConfig {
                         .requestMatchers("/api/v2/openapi/**").permitAll()
                         .requestMatchers("/api/v2/auth/register", "/api/v2/auth/csrf").permitAll()
                         .requestMatchers("/api/v2/wecom/**").permitAll()
+                        .requestMatchers("/api/v2/internal/wecom/**").permitAll()
                         .requestMatchers("/api/v1/**").permitAll()
                         .anyRequest().authenticated()
                 )

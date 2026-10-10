@@ -17,5 +17,6 @@ public interface PortalWecomSuiteAppService extends IService<PortalWecomSuiteApp
     PortalWecomSuiteAuthorization completeAuthorization(Long suiteAppId, String authCode);
     void refreshAuthorization(Long suiteAppId, String corpId);
     void cancelAuthorization(Long suiteAppId, String corpId);
+    PortalWecomSuiteAuthorization getAuthorization(Long suiteAppId, String corpId);
     List<PortalWecomSuiteAuthorization> listAuthorizations(Long userId, Long suiteAppId);
 }

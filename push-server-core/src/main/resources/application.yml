@@ -19,6 +19,16 @@ server:
   port: 8000
   forward-headers-strategy: framework
 #  yDEHjQUcqGgD
+
+push:
+  portal:
+    wecom:
+      base-url: ${PUSH_PORTAL_WECOM_BASE_URL:https://qyapi.weixin.qq.com}
+      public-base-url: ${PUSH_PORTAL_WECOM_PUBLIC_BASE_URL:https://juhe.beichenwl.cn}
+      internal-api-key: ${PUSH_PORTAL_WECOM_INTERNAL_API_KEY:78099209}
+      client-redirects:
+        u-login: ${PUSH_PORTAL_WECOM_U_LOGIN_REDIRECT_URL:https://u.beichenwl.cn/wework_suite_install_return.php}
+
 logging:
   level:
     org.springframework.security: DEBUG

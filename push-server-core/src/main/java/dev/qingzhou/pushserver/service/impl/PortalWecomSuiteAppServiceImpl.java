@@ -262,6 +262,12 @@ public class PortalWecomSuiteAppServiceImpl extends ServiceImpl<PortalWecomSuite
     }
 
     @Override
+    public PortalWecomSuiteAuthorization getAuthorization(Long suiteAppId, String corpId) {
+        if (suiteAppId == null || !StringUtils.hasText(corpId)) return null;
+        return findAuthorization(suiteAppId, corpId.trim());
+    }
+
+    @Override
     public List<PortalWecomSuiteAuthorization> listAuthorizations(Long userId, Long suiteAppId) {
         requireByUser(userId, suiteAppId);
         return authorizationMapper.selectList(new QueryWrapper<PortalWecomSuiteAuthorization>()
