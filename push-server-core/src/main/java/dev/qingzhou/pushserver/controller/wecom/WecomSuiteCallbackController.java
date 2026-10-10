@@ -5,11 +5,11 @@ import dev.qingzhou.pushserver.manager.wecom.WXBizMsgCrypt;
 import dev.qingzhou.pushserver.model.entity.portal.PortalWecomSuiteApp;
 import dev.qingzhou.pushserver.service.PortalWecomSuiteAppService;
 import java.io.StringReader;
-import java.util.concurrent.Executor;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,10 +26,10 @@ import org.xml.sax.InputSource;
 public class WecomSuiteCallbackController {
     private static final Logger log = LoggerFactory.getLogger(WecomSuiteCallbackController.class);
     private final PortalWecomSuiteAppService service;
-    private final Executor callbackExecutor;
+    private final TaskExecutor callbackExecutor;
 
     public WecomSuiteCallbackController(PortalWecomSuiteAppService service,
-                                        @Qualifier("wecomCallbackExecutor") Executor callbackExecutor) {
+                                        @Qualifier("applicationTaskExecutor") TaskExecutor callbackExecutor) {
         this.service = service;
         this.callbackExecutor = callbackExecutor;
     }
