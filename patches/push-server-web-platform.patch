@@ -185,7 +185,7 @@ index 3510a91..19542bc 100644
          <p>
            配置您的管理员账户与安全设置，开启高效推送服务之旅。
 diff --git a/src/views/LoginView.vue b/src/views/LoginView.vue
-index 341bc82..98fe61c 100644
+index 341bc82..1fd73e6 100644
 --- a/src/views/LoginView.vue
 +++ b/src/views/LoginView.vue
 @@ -10,7 +10,7 @@ import { ElMessage } from 'element-plus'
@@ -255,16 +255,21 @@ index 341bc82..98fe61c 100644
        </div>
  
        <div class="hero-content">
-@@ -179,7 +214,7 @@ onBeforeUnmount(() => {
+@@ -179,8 +214,12 @@ onBeforeUnmount(() => {
            <span>协同驱动未来</span>
          </h1>
          <p>
 -          轻舟消息推送平台为您提供高效、安全的数字化办公环境。统一管理，无缝协作，赋能每一位员工。
 +          聚合消息推送平台为您提供统一、安全的企业消息推送管理能力。
          </p>
++        <div class="free-use-notice free-use-notice--desktop" role="note">
++          <strong>免费不限时使用</strong>
++          <span>该应用针对所有企业为免费不限时使用的，无费用收取。</span>
++        </div>
          <div class="hero-tags">
            <span class="hero-tag">
-@@ -214,12 +249,12 @@ onBeforeUnmount(() => {
+             <el-icon>
+@@ -214,15 +253,20 @@ onBeforeUnmount(() => {
      <section class="login-panel">
        <div class="mobile-brand">
          <img src="/logo.png" alt="Logo" class="mobile-logo-img" />
@@ -279,7 +284,15 @@ index 341bc82..98fe61c 100644
            <p>请登录以管理消息推送系统</p>
          </div>
  
-@@ -316,6 +351,74 @@ onBeforeUnmount(() => {
++        <div class="free-use-notice free-use-notice--mobile" role="note">
++          <strong>免费不限时使用</strong>
++          <span>该应用针对所有企业为免费不限时使用的，无费用收取。</span>
++        </div>
++
+         <el-tabs v-model="activeTab" class="login-tabs">
+           <el-tab-pane label="账号登录" name="account">
+             <div class="login-form">
+@@ -316,6 +360,74 @@ onBeforeUnmount(() => {
                </el-button>
              </div>
            </el-tab-pane>
@@ -354,6 +367,52 @@ index 341bc82..98fe61c 100644
          </el-tabs>
        </div>
      </section>
+@@ -427,6 +539,34 @@ onBeforeUnmount(() => {
+   line-height: 1.8;
+ }
+ 
++.free-use-notice {
++  display: flex;
++  flex-direction: column;
++  gap: 4px;
++  padding: 12px 14px;
++  border-left: 3px solid #5bd6a2;
++  font-size: 13px;
++  line-height: 1.6;
++}
++
++.free-use-notice strong {
++  font-size: 14px;
++  font-weight: 700;
++}
++
++.free-use-notice--desktop {
++  margin-top: 20px;
++  color: rgba(243, 255, 250, 0.92);
++  background: rgba(41, 184, 132, 0.16);
++}
++
++.free-use-notice--mobile {
++  display: none;
++  margin-top: 18px;
++  color: #245c49;
++  background: #eefaf5;
++}
++
+ .hero-tags {
+   display: flex;
+   gap: 12px;
+@@ -887,6 +1027,10 @@ onBeforeUnmount(() => {
+     padding: 28px 20px 22px;
+   }
+ 
++  .free-use-notice--mobile {
++    display: flex;
++  }
++
+   .captcha-box {
+     min-width: 88px;
+     height: 42px;
 diff --git a/src/views/apps/AppsView.vue b/src/views/apps/AppsView.vue
 index 2cb7351..e384a56 100644
 --- a/src/views/apps/AppsView.vue
