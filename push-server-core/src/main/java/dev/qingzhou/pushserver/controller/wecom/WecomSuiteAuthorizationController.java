@@ -48,7 +48,7 @@ public class WecomSuiteAuthorizationController {
             throw new PortalException(PortalStatus.BAD_REQUEST, "WeCom resume state is too long");
         }
         WecomAuthorizationSession session = sessionService.create(suiteAppId, client, resume);
-        String redirectUri = urlService.authorizationCallbackUrl();
+        String redirectUri = urlService.authorizationCallbackUrl(suiteAppId);
         String installUrl = service.createInstallUrl(suiteAppId, redirectUri, session.state());
         return ResponseEntity.status(HttpStatus.FOUND)
                 .location(URI.create(installUrl))

@@ -33,9 +33,11 @@ public class WecomPortalUrlService {
         return requireHttpsUrl(redirect, "WeCom client redirect URL");
     }
 
-    public String authorizationCallbackUrl() {
-        return requireHttpsUrl(properties.getAuthorizationCallbackUrl(),
-                "WeCom authorization callback URL");
+    public String authorizationCallbackUrl(Long suiteAppId) {
+        if (suiteAppId == null || suiteAppId <= 0) {
+            throw new IllegalArgumentException("WeCom suite app ID must be positive");
+        }
+        return publicUrl("/api/v2/wecom/suite-auth/" + suiteAppId + "/complete");
     }
 
     private String requireHttpsUrl(String value, String name) {

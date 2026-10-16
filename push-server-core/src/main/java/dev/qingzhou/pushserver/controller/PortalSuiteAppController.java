@@ -94,7 +94,7 @@ public class PortalSuiteAppController {
         response.setUpdatedAt(app.getUpdatedAt());
         response.setCallbackUrl(urlService.publicUrl("/api/v2/wecom/suite-callback/" + app.getId()));
         response.setInstallUrl(urlService.publicUrl("/api/v2/wecom/suite-auth/" + app.getId() + "/install"));
-        response.setAuthorizationCallbackUrl(urlService.authorizationCallbackUrl());
+        response.setAuthorizationCallbackUrl(urlService.authorizationCallbackUrl(app.getId()));
         response.setAuthorizedCorpCount(service.listAuthorizations(app.getUserId(), app.getId()).stream()
                 .filter(authorization -> Integer.valueOf(1).equals(authorization.getStatus()))
                 .count());
